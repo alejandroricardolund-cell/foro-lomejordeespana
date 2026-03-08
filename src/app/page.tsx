@@ -7,10 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Lock, AlertCircle, Loader2, Home, MessageSquare, Users, Settings, LogOut, 
   Plus, ThumbsUp, ThumbsDown, Trash2, Edit, Send, Mail, ChevronRight,
-  Menu, X, Key, User, UserX, Crown
+  Menu, X, Key, User, UserX, Crown, Search, Reply, Circle, CheckCircle, XCircle, Copy, Check
 } from 'lucide-react';
 
 // Tipos
@@ -35,7 +36,7 @@ interface Subtopic {
   id: string;
   name: string;
   createdAt: string;
-  creator: { name: string };
+  creator: { name: string; id: string };
   _count: { posts: number };
 }
 
@@ -48,6 +49,8 @@ interface Post {
   likesCount: number;
   dislikesCount: number;
   userLike?: string;
+  parentId?: string;
+  repliesCount: number;
 }
 
 interface ChatMessage {
@@ -75,7 +78,18 @@ interface Member {
   isActive: boolean;
   accessKey: string;
   createdAt: string;
+  lastActiveAt?: string;
   inviter?: { name: string };
+}
+
+interface SearchResult {
+  type: 'topic' | 'subtopic' | 'post';
+  id: string;
+  title: string;
+  description: string;
+  link: string;
+  topicId?: string;
+  subtopicId?: string;
 }
 
 type View = 'login' | 'forum' | 'topic' | 'subtopic' | 'chat' | 'admin' | 'profile' | 'messages';
@@ -105,483 +119,14 @@ export default function ForumPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [sentMessages, setSentMessages] = useState<Message[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [allMembers, setAllMembers] = useState<Member[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   
   // Estados de formularios
-  const [newTopicName, setNewTopicName] = useState('');
-  const [newTopicDesc, setNewTopicDesc] = useState('');
-  const [newSubtopicName, setNewSubtopicName] = useState('');
-  const [newPostContent, setNewPostContent] = useState('');
-  const [newChatMessage, setNewChatMessage] = useState('');
-  const [newMessageRecipient, setNewMessageRecipient] = useState('');
-  const [newMessageSubject, setNewMessageSubject] = useState('');
-  const [newMessageContent, setNewMessageContent] = useState('');
-  const [newUserName, setNewUserName] = useState('');
-  const [newUserEmail, setNewUserEmail] = useState('');
-  
-  // Estados de UI
-  const [editingPost, setEditingPost] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState('');
-  const [showNewTopic, setShowNewTopic] = useState(false);
-  const [showNewSubtopic, setShowNewSubtopic] = useState(false);
-  const [showNewMessage, setShowNewMessage] = useState(false);
-  const [showInviteUser, setShowInviteUser] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
-  const [profileName, setProfileName] = useState('');
-  const [profileEmail, setProfileEmail] = useState('');
-  const [newKeyGenerated, setNewKeyGenerated] = useState('');
-  const [loading, setLoading] = useState(false);
-  
-  const chatRef = useRef<HTMLDivElement>(null);
-
-  // Funciones de datos (definidas primero)
-  const loadTopics = async () => {
-    try {
-      const res = await fetch('/api/topics');
-      const data = await res.json();
-      setTopics(data.topics || []);
-    } catch (e) {
-      console.error('Error loading topics:', e);
-    }
-  };
-
-  const loadMembers = async () => {
-    try {
-      const res = await fetch('/api/users');
-      const data = await res.json();
-      setMembers(data.users || []);
-    } catch (e) {
-      console.error('Error loading members:', e);
-    }
-  };
-
-  // Funciones de autenticación (definidas antes de usarlas en useEffect)
-  const checkSession = async () => {
-    try {
-      const res = await fetch('/api/auth/session');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.authenticated) {
-          setUser(data.user);
-          setProfileName(data.user.name);
-          setProfileEmail(data.user.email);
-          loadTopics();
-          if (data.user.role === 'admin') {
-            loadMembers();
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Error checking session:', e);
-    }
-    setCheckingSession(false);
-  };
-
-  const checkInit = async () => {
-    try {
-      const res = await fetch('/api/init');
-      const data = await res.json();
-      setNeedsInit(!data.initialized);
-    } catch (e) {
-      console.error('Error checking init:', e);
-    }
-  };
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    checkSession();
-    checkInit();
-  }, []);
-
-  useEffect(() => {
-    if (waitTime > 0) {
-      const timer = setTimeout(() => setWaitTime(waitTime - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [waitTime]);
-
-  useEffect(() => {
-    if (chatRef.current) {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
-    }
-  }, [chatMessages]);
-
-  const handleInit = async () => {
-    if (!confirm('¿Desea inicializar el sistema? Se creará una cuenta de administrador.')) return;
-    
-    setLoading(true);
-    try {
-      const res = await fetch('/api/init', { method: 'POST' });
-      const data = await res.json();
-      
-      if (data.success) {
-        alert(`¡Administrador creado!\n\nSu clave de acceso es: ${data.accessKey}\n\n¡GUARDE ESTA CLAVE EN UN LUGAR SEGURO!`);
-        setNeedsInit(false);
-      } else {
-        alert(data.error || 'Error al inicializar');
-      }
-    } catch (e) {
-      alert('Error de conexión');
-    }
-    setLoading(false);
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (blocked || waitTime > 0) return;
-    
-    setLoginLoading(true);
-    setLoginError('');
-
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessKey: accessKey.toUpperCase() })
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        setUser(data.user);
-        setProfileName(data.user.name);
-        setProfileEmail(data.user.email);
-        loadTopics();
-        if (data.user.role === 'admin') {
-          loadMembers();
-        }
-      } else {
-        setLoginError(data.error || 'Clave incorrecta');
-        if (data.waitTime) setWaitTime(data.waitTime);
-        if (data.blocked) setBlocked(true);
-        else if (data.attemptsLeft !== undefined) {
-          setAttemptsLeft(data.attemptsLeft);
-          setWaitTime(5);
-        }
-      }
-    } catch (e) {
-      setLoginError('Error de conexión');
-    }
-    
-    setLoginLoading(false);
-  };
-
-  const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    setUser(null);
-    setView('forum');
-  };
-
-  // Funciones de datos adicionales
-  const loadPosts = async (subtopicId: string) => {
-    try {
-      const res = await fetch(`/api/posts?subtopicId=${subtopicId}`);
-      const data = await res.json();
-      setPosts(data.posts || []);
-    } catch (e) {
-      console.error('Error loading posts:', e);
-    }
-  };
-
-  const loadChat = async (topicId: string) => {
-    try {
-      const res = await fetch(`/api/chat?topicId=${topicId}`);
-      const data = await res.json();
-      setChatMessages(data.messages || []);
-    } catch (e) {
-      console.error('Error loading chat:', e);
-    }
-  };
-
-  const loadMessages = async () => {
-    try {
-      const res = await fetch('/api/messages?type=received');
-      const data = await res.json();
-      setMessages(data.messages || []);
-      setUnreadCount(data.messages?.filter((m: Message) => !m.isRead).length || 0);
-    } catch (e) {
-      console.error('Error loading messages:', e);
-    }
-  };
-
-  // Acciones de navegación
-  const goToTopic = (topic: Topic) => {
-    setSelectedTopic(topic);
-    loadChat(topic.id);
-    setView('topic');
-  };
-
-  const goToSubtopic = (subtopic: Subtopic) => {
-    setSelectedSubtopic(subtopic);
-    loadPosts(subtopic.id);
-    setView('subtopic');
-  };
-
-  const goToChat = () => {
-    if (selectedTopic) {
-      loadChat(selectedTopic.id);
-      setView('chat');
-    }
-  };
-
-  const goToAdmin = () => {
-    loadMembers();
-    setView('admin');
-  };
-
-  const goToProfile = () => {
-    setShowProfile(true);
-  };
-
-  const goToMessages = () => {
-    loadMessages();
-    setView('messages');
-  };
-
-  // Acciones de contenido
-  const createTopic = async () => {
-    if (!newTopicName.trim()) return;
-    setLoading(true);
-    try {
-      const res = await fetch('/api/topics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newTopicName, description: newTopicDesc })
-      });
-      if (res.ok) {
-        setNewTopicName('');
-        setNewTopicDesc('');
-        setShowNewTopic(false);
-        loadTopics();
-      }
-    } catch (e) {
-      console.error('Error creating topic:', e);
-    }
-    setLoading(false);
-  };
-
-  const deleteTopic = async (id: string) => {
-    if (!confirm('¿Eliminar este tema y todo su contenido?')) return;
-    try {
-      await fetch('/api/topics', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
-      });
-      loadTopics();
-    } catch (e) {
-      console.error('Error deleting topic:', e);
-    }
-  };
-
-  const createSubtopic = async () => {
-    if (!newSubtopicName.trim() || !selectedTopic) return;
-    setLoading(true);
-    try {
-      const res = await fetch('/api/topics/subtopics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicId: selectedTopic.id, name: newSubtopicName })
-      });
-      if (res.ok) {
-        setNewSubtopicName('');
-        setShowNewSubtopic(false);
-        loadTopics();
-        // Actualizar selectedTopic
-        const updated = topics.find(t => t.id === selectedTopic.id);
-        if (updated) setSelectedTopic(updated);
-      }
-    } catch (e) {
-      console.error('Error creating subtopic:', e);
-    }
-    setLoading(false);
-  };
-
-  const createPost = async () => {
-    if (!newPostContent.trim() || !selectedSubtopic) return;
-    setLoading(true);
-    try {
-      const res = await fetch('/api/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subtopicId: selectedSubtopic.id, content: newPostContent })
-      });
-      if (res.ok) {
-        setNewPostContent('');
-        loadPosts(selectedSubtopic.id);
-      }
-    } catch (e) {
-      console.error('Error creating post:', e);
-    }
-    setLoading(false);
-  };
-
-  const updatePost = async (id: string) => {
-    if (!editContent.trim()) return;
-    try {
-      await fetch('/api/posts', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, content: editContent })
-      });
-      setEditingPost(null);
-      if (selectedSubtopic) loadPosts(selectedSubtopic.id);
-    } catch (e) {
-      console.error('Error updating post:', e);
-    }
-  };
-
-  const deletePost = async (id: string) => {
-    if (!confirm('¿Eliminar esta publicación?')) return;
-    try {
-      await fetch('/api/posts', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
-      });
-      if (selectedSubtopic) loadPosts(selectedSubtopic.id);
-    } catch (e) {
-      console.error('Error deleting post:', e);
-    }
-  };
-
-  const handleLike = async (postId: string, type: 'like' | 'dislike') => {
-    try {
-      await fetch('/api/likes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postId, type })
-      });
-      if (selectedSubtopic) loadPosts(selectedSubtopic.id);
-    } catch (e) {
-      console.error('Error with like:', e);
-    }
-  };
-
-  const sendChatMessage = async () => {
-    if (!newChatMessage.trim() || !selectedTopic) return;
-    try {
-      await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topicId: selectedTopic.id, message: newChatMessage })
-      });
-      setNewChatMessage('');
-      loadChat(selectedTopic.id);
-    } catch (e) {
-      console.error('Error sending chat message:', e);
-    }
-  };
-
-  const sendMessage = async () => {
-    if (!newMessageContent.trim() || !newMessageRecipient) return;
-    try {
-      await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          receiverId: newMessageRecipient, 
-          subject: newMessageSubject, 
-          content: newMessageContent 
-        })
-      });
-      setNewMessageRecipient('');
-      setNewMessageSubject('');
-      setNewMessageContent('');
-      setShowNewMessage(false);
-    } catch (e) {
-      console.error('Error sending message:', e);
-    }
-  };
-
-  const markAsRead = async (id: string) => {
-    try {
-      await fetch('/api/messages', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id })
-      });
-      loadMessages();
-    } catch (e) {
-      console.error('Error marking as read:', e);
-    }
-  };
-
-  const inviteUser = async () => {
-    if (!newUserName.trim() || !newUserEmail.trim()) return;
-    setLoading(true);
-    try {
-      const res = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newUserName, email: newUserEmail })
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert(`¡Usuario invitado!\n\nNombre: ${data.user.name}\nEmail: ${data.user.email}\nClave de acceso: ${data.user.accessKey}\n\nEnvíe esta clave al nuevo miembro.`);
-        setNewUserName('');
-        setNewUserEmail('');
-        setShowInviteUser(false);
-        loadMembers();
-      } else {
-        alert(data.error || 'Error al invitar');
-      }
-    } catch (e) {
-      console.error('Error inviting user:', e);
-    }
-    setLoading(false);
-  };
-
-  const updateProfile = async (generateNewKey: boolean = false) => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/users/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          name: profileName, 
-          email: profileEmail,
-          newAccessKey: generateNewKey
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setUser(data.user);
-        if (generateNewKey && data.user.accessKey) {
-          setNewKeyGenerated(data.user.accessKey);
-        } else {
-          setShowProfile(false);
-        }
-      }
-    } catch (e) {
-      console.error('Error updating profile:', e);
-    }
-    setLoading(false);
-  };
-
-  const deleteAccount = async () => {
-    if (!confirm('¿Está seguro de darse de baja? Esta acción no se puede deshacer.')) return;
-    try {
-      await fetch('/api/users/profile', { method: 'DELETE' });
-      handleLogout();
-    } catch (e) {
-      console.error('Error deleting account:', e);
-    }
-  };
-
-  // Formatear fecha
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  // RENDER PRINCIPAL
+  const
+      // RENDER PRINCIPAL
   if (checkingSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -769,7 +314,107 @@ export default function ForumPage() {
               {view === 'messages' && 'Mensajes'}
             </h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            {/* Barra de búsqueda */}
+            <div className="relative">
+              <div className="flex items-center gap-2">
+                <Input
+                  type="text"
+                  placeholder="Buscar..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  className="w-48 bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                />
+                <Button size="sm" onClick={handleSearch}>
+                  <Search className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {/* Resultados de búsqueda */}
+              {showSearch && searchResults && (
+                <div className="absolute right-0 top-12 w-96 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
+                  <div className="p-2 border-b border-slate-700 flex justify-between items-center">
+                    <span className="text-sm font-medium">Resultados</span>
+                    <Button variant="ghost" size="sm" onClick={() => setShowSearch(false)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  {searchResults.topics.length === 0 && searchResults.subtopics.length === 0 && searchResults.posts.length === 0 ? (
+                    <p className="p-4 text-slate-400 text-center">No se encontraron resultados</p>
+                  ) : (
+                    <div className="p-2 space-y-2">
+                      {searchResults.topics.map(r => (
+                        <div 
+                          key={`topic-${r.id}`}
+                          className="p-2 hover:bg-slate-700 rounded cursor-pointer"
+                          onClick={() => {
+                            const topic = topics.find(t => t.id === r.id);
+                            if (topic) goToTopic(topic);
+                            setShowSearch(false);
+                            setSearchQuery('');
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">Tema</Badge>
+                            <span className="font-medium">{r.title}</span>
+                          </div>
+                          <p className="text-sm text-slate-400 mt-1">{r.description}</p>
+                        </div>
+                      ))}
+                      
+                      {searchResults.subtopics.map(r => (
+                        <div 
+                          key={`subtopic-${r.id}`}
+                          className="p-2 hover:bg-slate-700 rounded cursor-pointer"
+                          onClick={() => {
+                            const topic = topics.find(t => t.id === r.topicId);
+                            const subtopic = topic?.subtopics.find(s => s.id === r.id);
+                            if (topic && subtopic) {
+                              setSelectedTopic(topic);
+                              goToSubtopic(subtopic);
+                            }
+                            setShowSearch(false);
+                            setSearchQuery('');
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="border-yellow-500">Subtema</Badge>
+                            <span className="font-medium">{r.title}</span>
+                          </div>
+                          <p className="text-sm text-slate-400 mt-1">{r.description}</p>
+                        </div>
+                      ))}
+                      
+                      {searchResults.posts.map(r => (
+                        <div 
+                          key={`post-${r.id}`}
+                          className="p-2 hover:bg-slate-700 rounded cursor-pointer"
+                          onClick={() => {
+                            const topic = topics.find(t => t.id === r.topicId);
+                            const subtopic = topic?.subtopics.find(s => s.id === r.subtopicId);
+                            if (topic && subtopic) {
+                              setSelectedTopic(topic);
+                              goToSubtopic(subtopic);
+                            }
+                            setShowSearch(false);
+                            setSearchQuery('');
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="border-green-500">Post</Badge>
+                            <span className="font-medium">{r.title}</span>
+                          </div>
+                          <p className="text-sm text-slate-400 mt-1">{r.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            
             <Badge variant="outline" className="gap-1">
               <User className="h-3 w-3" />
               {user.name}
@@ -825,64 +470,344 @@ export default function ForumPage() {
               <div className="grid gap-4">
                 {topics.length === 0 ? (
                   <Card className="bg-slate-800/50 border-slate-700">
-                    <CardContent className="p-8 text-center text-slate-400">
-                      No hay temas creados. {user.role === 'admin' && 'Crea el primer tema para comenzar.'}
+                    <CardContent className="p-6 text-center text-slate-400">
+                      No hay temas creados aún.
                     </CardContent>
                   </Card>
                 ) : (
                   topics.map((topic) => (
-                    <Card key={topic.id} className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition-colors">
-                      <CardHeader className="pb-2">
-                        <div className="flex items-start justify-between">
-                          <div className="cursor-pointer" onClick={() => goToTopic(topic)}>
-                            <CardTitle className="text-lg hover:text-yellow-500 transition-colors">
-                              {topic.name}
-                            </CardTitle>
+                    <Card 
+                      key={topic.id} 
+                      className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition-colors"
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div 
+                            className="flex-1 cursor-pointer"
+                            onClick={() => goToTopic(topic)}
+                          >
+                            <h4 className="font-semibold text-lg">{topic.name}</h4>
                             {topic.description && (
-                              <CardDescription className="text-slate-400 mt-1">
-                                {topic.description}
-                              </CardDescription>
+                              <p className="text-slate-400 text-sm mt-1">{topic.description}</p>
                             )}
+                            <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
+                              <span>{topic._count.subtopics} subtemas</span>
+                              <span>{topic._count.chatMessages} mensajes en chat</span>
+                            </div>
                           </div>
-                          {user.role === 'admin' && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-red-400 hover:text-red-300"
-                              onClick={() => deleteTopic(topic.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
+                          <div className="flex items-center gap-2">
+                            {user.role === 'admin' && (
+                              <>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingTopic(topic);
+                                    setEditTopicName(topic.name);
+                                    setEditTopicDesc(topic.description || '');
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => deleteTopic(topic.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-400" />
+                                </Button>
+                              </>
+                            )}
+                            <Button variant="ghost" size="sm" onClick={() => goToTopic(topic)}>
+                              <ChevronRight className="h-4 w-4" />
                             </Button>
-                          )}
+                          </div>
                         </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center gap-4 text-sm text-slate-400">
-                          <span>{topic._count.subtopics} subtemas</span>
-                          <span>{topic._count.chatMessages} mensajes en chat</span>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+                    {/* Vista: Tema (lista de subtemas y chat) */}
+          {view === 'topic' && selectedTopic && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Subtemas</h3>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={goToChat}>
+                    <MessageSquare className="h-4 w-4 mr-1" />Chat
+                  </Button>
+                  <Dialog open={showNewSubtopic} onOpenChange={setShowNewSubtopic}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" className="gap-1">
+                        <Plus className="h-4 w-4" />Nuevo Subtema
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-slate-800 border-slate-700">
+                      <DialogHeader>
+                        <DialogTitle>Crear Nuevo Subtema</DialogTitle>
+                        <DialogDescription>
+                          Los subtemas contienen las publicaciones de discusión.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 pt-4">
+                        <Input
+                          placeholder="Nombre del subtema"
+                          value={newSubtopicName}
+                          onChange={(e) => setNewSubtopicName(e.target.value)}
+                          className="bg-slate-700 border-slate-600"
+                        />
+                        <Button onClick={createSubtopic} disabled={loading || !newSubtopicName.trim()}>
+                          {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                          Crear Subtema
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+              
+              <div className="grid gap-3">
+                {selectedTopic.subtopics.length === 0 ? (
+                  <Card className="bg-slate-800/50 border-slate-700">
+                    <CardContent className="p-6 text-center text-slate-400">
+                      No hay subtemas en este tema.
+                    </CardContent>
+                  </Card>
+                ) : (
+                  selectedTopic.subtopics.map((subtopic) => (
+                    <Card 
+                      key={subtopic.id} 
+                      className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition-colors"
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div 
+                            className="flex-1 cursor-pointer"
+                            onClick={() => goToSubtopic(subtopic)}
+                          >
+                            <h4 className="font-medium">{subtopic.name}</h4>
+                            <p className="text-sm text-slate-500">
+                              Por {subtopic.creator.name} • {subtopic._count.posts} publicaciones
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {(user.role === 'admin' || user.id === subtopic.creator.id) && (
+                              <>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingSubtopic(subtopic);
+                                    setEditSubtopicName(subtopic.name);
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => deleteSubtopic(subtopic.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-400" />
+                                </Button>
+                              </>
+                            )}
+                            <Button variant="ghost" size="sm" onClick={() => goToSubtopic(subtopic)}>
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
-                        {topic.subtopics.length > 0 && (
-                          <div className="mt-3 space-y-1">
-                            {topic.subtopics.slice(0, 3).map((st) => (
-                              <div 
-                                key={st.id}
-                                className="flex items-center gap-2 text-sm text-slate-300 hover:text-yellow-500 cursor-pointer"
-                                onClick={() => { setSelectedTopic(topic); goToSubtopic(st); }}
-                              >
-                                <ChevronRight className="h-3 w-3" />
-                                {st.name}
-                                <span className="text-slate-500">({st._count.posts})</span>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Vista: Chat del tema */}
+          {view === 'chat' && selectedTopic && (
+            <div className="flex flex-col h-full">
+              <div 
+                ref={chatRef}
+                className="flex-1 overflow-y-auto space-y-2 mb-4 p-2 bg-slate-800/30 rounded-lg"
+              >
+                {chatMessages.length === 0 ? (
+                  <p className="text-center text-slate-400 py-4">No hay mensajes en el chat.</p>
+                ) : (
+                  chatMessages.map((msg) => (
+                    <div key={msg.id} className="flex gap-2">
+                      <div className="flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-600 to-yellow-500 flex items-center justify-center text-sm font-bold">
+                          {msg.user.name.charAt(0).toUpperCase()}
+                        </div>
+                      </div>
+                      <div className="flex-1 bg-slate-700/50 rounded-lg p-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{msg.user.name}</span>
+                          <span className="text-xs text-slate-500">{formatDate(msg.createdAt)}</span>
+                        </div>
+                        <p className="text-slate-300">{msg.message}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Escribir mensaje..."
+                  value={newChatMessage}
+                  onChange={(e) => setNewChatMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
+                  className="bg-slate-700 border-slate-600"
+                />
+                <Button onClick={sendChatMessage}>
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Vista: Subtema (lista de posts) */}
+          {view === 'subtopic' && selectedSubtopic && (
+            <div className="space-y-4">
+              {/* Formulario de nueva publicación */}
+              <Card className="bg-slate-800/50 border-slate-700">
+                <CardContent className="p-4">
+                  <Textarea
+                    placeholder="Escribe una nueva publicación..."
+                    value={newPostContent}
+                    onChange={(e) => setNewPostContent(e.target.value)}
+                    className="bg-slate-700 border-slate-600 mb-2"
+                    rows={3}
+                  />
+                  <Button onClick={createPost} disabled={loading || !newPostContent.trim()}>
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Publicar
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Lista de publicaciones */}
+              <div className="space-y-4">
+                {posts.length === 0 ? (
+                  <Card className="bg-slate-800/50 border-slate-700">
+                    <CardContent className="p-6 text-center text-slate-400">
+                      No hay publicaciones aún. ¡Sé el primero!
+                    </CardContent>
+                  </Card>
+                ) : (
+                  posts.map((post) => (
+                    <Card key={post.id} className="bg-slate-800/50 border-slate-700">
+                      <CardContent className="p-4">
+                        {editingPost === post.id ? (
+                          <div className="space-y-2">
+                            <Textarea
+                              value={editContent}
+                              onChange={(e) => setEditContent(e.target.value)}
+                              className="bg-slate-700 border-slate-600"
+                            />
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={() => updatePost(post.id)}>Guardar</Button>
+                              <Button size="sm" variant="ghost" onClick={() => setEditingPost(null)}>Cancelar</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="whitespace-pre-wrap">{post.content}</p>
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-700">
+                              <div className="text-sm text-slate-500">
+                                Por {post.author.name} • {formatDate(post.createdAt)}
+                                {post.updatedAt !== post.createdAt && ' (editado)'}
                               </div>
-                            ))}
-                            {topic.subtopics.length > 3 && (
-                              <div 
-                                className="text-sm text-slate-400 hover:text-yellow-500 cursor-pointer"
-                                onClick={() => goToTopic(topic)}
-                              >
-                                Ver más...
+                              <div className="flex items-center gap-2">
+                                {/* Likes */}
+                                <div className="flex items-center gap-1">
+                                  <Button 
+                                    size="sm" 
+                                    variant={post.userLike === 'like' ? 'default' : 'ghost'}
+                                    onClick={() => handleLike(post.id, 'like')}
+                                  >
+                                    <ThumbsUp className="h-4 w-4" />
+                                  </Button>
+                                  <span className="text-sm">{post.likesCount}</span>
+                                  <Button 
+                                    size="sm" 
+                                    variant={post.userLike === 'dislike' ? 'default' : 'ghost'}
+                                    onClick={() => handleLike(post.id, 'dislike')}
+                                  >
+                                    <ThumbsDown className="h-4 w-4" />
+                                  </Button>
+                                  <span className="text-sm">{post.dislikesCount}</span>
+                                </div>
+                                
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setReplyingTo(post);
+                                    setReplyContent('');
+                                  }}
+                                >
+                                  <Reply className="h-4 w-4" />
+                                </Button>
+                                
+                                {(user.role === 'admin' || user.id === post.author.id) && (
+                                  <>
+                                    <Button 
+                                      size="sm" 
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setEditingPost(post.id);
+                                        setEditContent(post.content);
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="ghost"
+                                      onClick={() => deletePost(post.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-red-400" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Formulario de respuesta */}
+                            {replyingTo?.id === post.id && (
+                              <div className="mt-3 pt-3 border-t border-slate-700 space-y-2">
+                                <p className="text-sm text-slate-400">Respondiendo a {post.author.name}</p>
+                                <Textarea
+                                  value={replyContent}
+                                  onChange={(e) => setReplyContent(e.target.value)}
+                                  placeholder="Escribe tu respuesta..."
+                                  className="bg-slate-700 border-slate-600"
+                                />
+                                <div className="flex gap-2">
+                                  <Button size="sm" onClick={createReply} disabled={loading || !replyContent.trim()}>
+                                    Responder
+                                  </Button>
+                                  <Button size="sm" variant="ghost" onClick={() => setReplyingTo(null)}>
+                                    Cancelar
+                                  </Button>
+                                </div>
                               </div>
                             )}
-                          </div>
+                            
+                            {/* Respuestas */}
+                            {post.repliesCount > 0 && (
+                              <div className="mt-3 pt-3 border-t border-slate-700">
+                                <p className="text-sm text-slate-500">{post.repliesCount} respuestas</p>
+                              </div>
+                            )}
+                          </>
                         )}
                       </CardContent>
                     </Card>
@@ -892,247 +817,169 @@ export default function ForumPage() {
             </div>
           )}
 
-          {/* Vista: Tema (lista de subtemas y acceso al chat) */}
-          {view === 'topic' && selectedTopic && (
+          {/* Vista: Mensajes privados */}
+          {view === 'messages' && (
             <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Button onClick={goToChat} className="gap-2">
-                  <MessageSquare className="h-4 w-4" />Chat de Brainstorming
-                </Button>
-                <Dialog open={showNewSubtopic} onOpenChange={setShowNewSubtopic}>
+              <div className="flex items-center justify-between">
+                <Tabs value={messageTab} onValueChange={(v) => setMessageTab(v as 'received' | 'sent')}>
+                  <TabsList className="bg-slate-800">
+                    <TabsTrigger value="received">Recibidos</TabsTrigger>
+                    <TabsTrigger value="sent">Enviados</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <Dialog open={showNewMessage} onOpenChange={setShowNewMessage}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-1">
-                      <Plus className="h-4 w-4" />Nuevo Subtema
+                    <Button size="sm" className="gap-1">
+                      <Plus className="h-4 w-4" />Nuevo Mensaje
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="bg-slate-800 border-slate-700">
                     <DialogHeader>
-                      <DialogTitle>Crear Subtema</DialogTitle>
-                      <DialogDescription>
-                        Los subtemas son subdivisiones dentro de un tema para organizar las discusiones.
-                      </DialogDescription>
+                      <DialogTitle>Nuevo Mensaje</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 pt-4">
+                      <div>
+                        <label className="text-sm text-slate-400">Para:</label>
+                        <select 
+                          value={newMessageRecipient}
+                          onChange={(e) => setNewMessageRecipient(e.target.value)}
+                          className="w-full mt-1 bg-slate-700 border border-slate-600 rounded p-2"
+                        >
+                          <option value="">Seleccionar destinatario</option>
+                          {allMembers
+                            .filter(m => m.id !== user.id && m.isActive)
+                            .map(m => (
+                              <option key={m.id} value={m.id}>{m.name}</option>
+                            ))
+                          }
+                        </select>
+                      </div>
                       <Input
-                        placeholder="Nombre del subtema"
-                        value={newSubtopicName}
-                        onChange={(e) => setNewSubtopicName(e.target.value)}
+                        placeholder="Asunto"
+                        value={newMessageSubject}
+                        onChange={(e) => setNewMessageSubject(e.target.value)}
                         className="bg-slate-700 border-slate-600"
                       />
-                      <Button onClick={createSubtopic} disabled={loading || !newSubtopicName.trim()}>
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                        Crear Subtema
+                      <Textarea
+                        placeholder="Mensaje..."
+                        value={newMessageContent}
+                        onChange={(e) => setNewMessageContent(e.target.value)}
+                        className="bg-slate-700 border-slate-600"
+                        rows={4}
+                      />
+                      <Button onClick={sendMessage} disabled={loading || !newMessageRecipient || !newMessageContent.trim()}>
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                        Enviar
                       </Button>
                     </div>
                   </DialogContent>
                 </Dialog>
               </div>
               
-              <div className="grid gap-3">
-                {selectedTopic.subtopics.length === 0 ? (
-                  <Card className="bg-slate-800/50 border-slate-700">
-                    <CardContent className="p-6 text-center text-slate-400">
-                      No hay subtemas. Crea uno para comenzar la discusión.
-                    </CardContent>
-                  </Card>
-                ) : (
-                  selectedTopic.subtopics.map((st) => (
-                    <Card 
-                      key={st.id}
-                      className="bg-slate-800/50 border-slate-700 hover:border-slate-600 cursor-pointer transition-colors"
-                      onClick={() => goToSubtopic(st)}
-                    >
-                      <CardContent className="p-4 flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium">{st.name}</h4>
-                          <p className="text-sm text-slate-400">
-                            Por {st.creator.name} • {st._count.posts} publicaciones
-                          </p>
-                        </div>
-                        <ChevronRight className="h-5 w-5 text-slate-400" />
+              <TabsContent value="received" className="mt-0">
+                <div className="space-y-2">
+                  {messages.length === 0 ? (
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardContent className="p-6 text-center text-slate-400">
+                        No tienes mensajes.
                       </CardContent>
                     </Card>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Vista: Subtema (posts) */}
-          {view === 'subtopic' && selectedSubtopic && (
-            <div className="space-y-4">
-              <Card className="bg-slate-800/30 border-slate-700">
-                <CardContent className="p-4">
-                  <Textarea
-                    placeholder="Escribe tu publicación..."
-                    value={newPostContent}
-                    onChange={(e) => setNewPostContent(e.target.value)}
-                    className="bg-slate-700 border-slate-600 min-h-[100px]"
-                  />
-                  <div className="flex justify-end mt-2">
-                    <Button onClick={createPost} disabled={loading || !newPostContent.trim()}>
-                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                      Publicar
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <div className="space-y-3">
-                {posts.length === 0 ? (
-                  <Card className="bg-slate-800/50 border-slate-700">
-                    <CardContent className="p-6 text-center text-slate-400">
-                      Sé el primero en publicar.
-                    </CardContent>
-                  </Card>
-                ) : (
-                  posts.map((post) => (
-                    <Card key={post.id} className="bg-slate-800/50 border-slate-700">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 text-sm text-slate-400 mb-2">
-                              <User className="h-3 w-3" />
-                              <span className="font-medium text-slate-300">{post.author.name}</span>
-                              <span>•</span>
-                              <span>{formatDate(post.createdAt)}</span>
-                              {post.updatedAt !== post.createdAt && (
-                                <span className="text-slate-500">(editado)</span>
-                              )}
-                            </div>
-                            
-                            {editingPost === post.id ? (
-                              <div className="space-y-2">
-                                <Textarea
-                                  value={editContent}
-                                  onChange={(e) => setEditContent(e.target.value)}
-                                  className="bg-slate-700 border-slate-600"
-                                />
-                                <div className="flex gap-2">
-                                  <Button size="sm" onClick={() => updatePost(post.id)}>Guardar</Button>
-                                  <Button size="sm" variant="ghost" onClick={() => setEditingPost(null)}>Cancelar</Button>
-                                </div>
+                  ) : (
+                    messages.map((msg) => (
+                      <Card 
+                        key={msg.id} 
+                        className={`bg-slate-800/50 border-slate-700 ${!msg.isRead ? 'border-l-4 border-l-yellow-500' : ''}`}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{msg.subject}</span>
+                                {!msg.isRead && <Badge variant="default" className="text-xs">Nuevo</Badge>}
                               </div>
-                            ) : (
-                              <p className="text-slate-200 whitespace-pre-wrap">{post.content}</p>
-                            )}
-                          </div>
-                          
-                          {post.author.id === user.id && editingPost !== post.id && (
-                            <div className="flex gap-1">
+                              <p className="text-sm text-slate-400 mt-1">
+                                De: {msg.sender.name} • {formatDate(msg.createdAt)}
+                              </p>
+                              <p className="text-slate-300 mt-2">{msg.content}</p>
+                            </div>
+                            <div className="flex gap-2">
+                              {!msg.isRead && (
+                                <Button size="sm" variant="ghost" onClick={() => markAsRead(msg.id)}>
+                                  Marcar leído
+                                </Button>
+                              )}
                               <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => { setEditingPost(post.id); setEditContent(post.content); }}
+                                size="sm" 
+                                variant="outline"
+                                onClick={async () => {
+                                  await loadAllMembers();
+                                  setNewMessageRecipient(msg.sender.id);
+                                  setNewMessageSubject(`Re: ${msg.subject}`);
+                                  setNewMessageContent('');
+                                  setShowNewMessage(true);
+                                }}
                               >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                className="text-red-400 hover:text-red-300"
-                                onClick={() => deletePost(post.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
+                                <Reply className="h-4 w-4 mr-1" />
+                                Responder
                               </Button>
                             </div>
-                          )}
-                        </div>
-                        
-                        {/* Likes/Dislikes */}
-                        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-700">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            className={`gap-1 ${post.userLike === 'like' ? 'text-green-500' : 'text-slate-400'}`}
-                            onClick={() => handleLike(post.id, 'like')}
-                          >
-                            <ThumbsUp className="h-4 w-4" />
-                            {post.likesCount}
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            className={`gap-1 ${post.userLike === 'dislike' ? 'text-red-500' : 'text-slate-400'}`}
-                            onClick={() => handleLike(post.id, 'dislike')}
-                          >
-                            <ThumbsDown className="h-4 w-4" />
-                            {post.dislikesCount}
-                          </Button>
-                        </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="sent" className="mt-0">
+                <div className="space-y-2">
+                  {sentMessages.length === 0 ? (
+                    <Card className="bg-slate-800/50 border-slate-700">
+                      <CardContent className="p-6 text-center text-slate-400">
+                        No tienes mensajes enviados.
                       </CardContent>
                     </Card>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Vista: Chat de Brainstorming */}
-          {view === 'chat' && selectedTopic && (
-            <div className="h-full flex flex-col">
-              <Card className="flex-1 bg-slate-800/50 border-slate-700 flex flex-col">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Chat de Brainstorming</CardTitle>
-                  <CardDescription>
-                    Ideas no maduradas, sugerencias y comentarios sobre {selectedTopic.name}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col overflow-hidden">
-                  <div ref={chatRef} className="flex-1 overflow-auto space-y-3 mb-4 pr-2">
-                    {chatMessages.length === 0 ? (
-                      <p className="text-slate-400 text-center">No hay mensajes. ¡Inicia la conversación!</p>
-                    ) : (
-                      chatMessages.map((msg) => (
-                        <div key={msg.id} className={`flex flex-col ${msg.user.id === user.id ? 'items-end' : 'items-start'}`}>
-                          <div className={`max-w-[70%] rounded-lg px-3 py-2 ${
-                            msg.user.id === user.id 
-                              ? 'bg-gradient-to-r from-red-600 to-yellow-600' 
-                              : 'bg-slate-700'
-                          }`}>
-                            <p className="text-sm font-medium mb-1">{msg.user.name}</p>
-                            <p className="text-sm">{msg.message}</p>
+                  ) : (
+                    sentMessages.map((msg) => (
+                      <Card 
+                        key={msg.id} 
+                        className="bg-slate-800/50 border-slate-700"
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{msg.subject}</span>
+                              </div>
+                              <p className="text-sm text-slate-400 mt-1">
+                                Para: {msg.receiver.name} • {formatDate(msg.createdAt)}
+                              </p>
+                              <p className="text-slate-300 mt-2">{msg.content}</p>
+                            </div>
                           </div>
-                          <p className="text-xs text-slate-500 mt-1">{formatDate(msg.createdAt)}</p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Escribe un mensaje..."
-                      value={newChatMessage}
-                      onChange={(e) => setNewChatMessage(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
-                      className="bg-slate-700 border-slate-600"
-                    />
-                    <Button onClick={sendChatMessage}>
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </TabsContent>
             </div>
           )}
 
-          {/* Vista: Administración */}
-          {view === 'admin' && user.role === 'admin' && (
+          {/* Vista: Panel de Administración */}
+          {view === 'admin' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Miembros del Foro</h3>
+                <h3 className="text-lg font-semibold">Gestión de Usuarios</h3>
                 <Dialog open={showInviteUser} onOpenChange={setShowInviteUser}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="gap-1">
-                      <Plus className="h-4 w-4" />Invitar Miembro
+                      <Plus className="h-4 w-4" />Invitar Usuario
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="bg-slate-800 border-slate-700">
                     <DialogHeader>
-                      <DialogTitle>Invitar Nuevo Miembro</DialogTitle>
-                      <DialogDescription>
-                        Se generará una clave de acceso única para el nuevo miembro.
-                      </DialogDescription>
+                      <DialogTitle>Invitar Nuevo Usuario</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 pt-4">
                       <Input
@@ -1142,7 +989,7 @@ export default function ForumPage() {
                         className="bg-slate-700 border-slate-600"
                       />
                       <Input
-                        placeholder="Correo electrónico"
+                        placeholder="Email"
                         type="email"
                         value={newUserEmail}
                         onChange={(e) => setNewUserEmail(e.target.value)}
@@ -1157,136 +1004,141 @@ export default function ForumPage() {
                 </Dialog>
               </div>
               
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardContent className="p-0">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-700">
-                        <th className="text-left p-3 text-sm font-medium text-slate-400">Nombre</th>
-                        <th className="text-left p-3 text-sm font-medium text-slate-400">Email</th>
-                        <th className="text-left p-3 text-sm font-medium text-slate-400">Clave</th>
-                        <th className="text-left p-3 text-sm font-medium text-slate-400">Rol</th>
-                        <th className="text-left p-3 text-sm font-medium text-slate-400">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {members.map((member) => (
-                        <tr key={member.id} className="border-b border-slate-700/50">
-                          <td className="p-3">
-                            <div className="flex items-center gap-2">
-                              {member.name}
-                              {member.role === 'admin' && <Crown className="h-3 w-3 text-yellow-500" />}
-                            </div>
-                          </td>
-                          <td className="p-3 text-slate-400">{member.email}</td>
-                          <td className="p-3">
-                            <code className="text-xs bg-slate-700 px-2 py-1 rounded">{member.accessKey}</code>
-                          </td>
-                          <td className="p-3">
-                            <Badge variant={member.role === 'admin' ? 'default' : 'outline'}>
-                              {member.role === 'admin' ? 'Admin' : 'Miembro'}
-                            </Badge>
-                          </td>
-                          <td className="p-3">
-                            <Badge variant={member.isActive ? 'default' : 'destructive'}>
-                              {member.isActive ? 'Activo' : 'Inactivo'}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Vista: Mensajes */}
-          {view === 'messages' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Mensajes Recibidos</h3>
-                <Dialog open={showNewMessage} onOpenChange={setShowNewMessage}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1" onClick={() => user.role === 'admin' ? loadMembers() : null}>
-                      <Plus className="h-4 w-4" />Nuevo Mensaje
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-slate-800 border-slate-700">
-                    <DialogHeader>
-                      <DialogTitle>Nuevo Mensaje</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 pt-4">
-                      <select
-                        value={newMessageRecipient}
-                        onChange={(e) => setNewMessageRecipient(e.target.value)}
-                        className="w-full p-2 rounded bg-slate-700 border border-slate-600"
+              {/* Modal para mostrar clave de invitado */}
+              {invitedUserKey && (
+                <Card className="bg-green-900/30 border-green-700 mb-4">
+                  <CardContent className="p-4">
+                    <h4 className="font-semibold text-green-400 mb-2">¡Usuario invitado!</h4>
+                    <p className="text-sm text-slate-300 mb-2">
+                      <strong>{invitedUserKey.name}</strong> ({invitedUserKey.email})
+                    </p>
+                    <div className="flex items-center gap-2 bg-slate-800 p-2 rounded mb-3">
+                      <Key className="h-4 w-4 text-yellow-500" />
+                      <code className="text-yellow-400 font-mono">{invitedUserKey.accessKey}</code>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        onClick={() => copyToClipboard(invitedUserKey.accessKey)}
                       >
-                        <option value="">Seleccionar destinatario...</option>
-                        {members.filter(m => m.id !== user.id && m.isActive).map((m) => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
-                        ))}
-                      </select>
-                      <Input
-                        placeholder="Asunto"
-                        value={newMessageSubject}
-                        onChange={(e) => setNewMessageSubject(e.target.value)}
-                        className="bg-slate-700 border-slate-600"
-                      />
-                      <Textarea
-                        placeholder="Contenido del mensaje"
-                        value={newMessageContent}
-                        onChange={(e) => setNewMessageContent(e.target.value)}
-                        className="bg-slate-700 border-slate-600 min-h-[100px]"
-                      />
-                      <Button onClick={sendMessage} disabled={!newMessageRecipient || !newMessageContent.trim()}>
-                        Enviar
+                        {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                       </Button>
                     </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
+                    <div className="bg-slate-800 p-3 rounded text-sm mb-3">
+                      <p className="text-slate-400 mb-1">Mensaje para compartir:</p>
+                      <pre className="text-slate-300 whitespace-pre-wrap text-xs">{getInvitationMessage()}</pre>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => setInvitedUserKey(null)}>
+                      Cerrar
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
               
-              <div className="space-y-2">
-                {messages.length === 0 ? (
-                  <Card className="bg-slate-800/50 border-slate-700">
-                    <CardContent className="p-6 text-center text-slate-400">
-                      No tienes mensajes.
-                    </CardContent>
-                  </Card>
-                ) : (
-                  messages.map((msg) => (
-                    <Card 
-                      key={msg.id} 
-                      className={`bg-slate-800/50 border-slate-700 ${!msg.isRead ? 'border-l-4 border-l-yellow-500' : ''}`}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
+              <div className="grid gap-3">
+                {members.map((member) => (
+                  <Card key={member.id} className="bg-slate-800/50 border-slate-700">
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-yellow-500 flex items-center justify-center font-bold">
+                              {member.name.charAt(0).toUpperCase()}
+                            </div>
+                            {isUserOnline(member.lastActiveAt) && (
+                              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-800"></div>
+                            )}
+                          </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{msg.subject}</span>
-                              {!msg.isRead && <Badge variant="default" className="text-xs">Nuevo</Badge>}
+                              <span className="font-medium">{member.name}</span>
+                              {member.role === 'admin' && <Crown className="h-4 w-4 text-yellow-500" />}
+                              {!member.isActive && <Badge variant="destructive" className="text-xs">Inactivo</Badge>}
                             </div>
-                            <p className="text-sm text-slate-400 mt-1">
-                              De: {msg.sender.name} • {formatDate(msg.createdAt)}
-                            </p>
-                            <p className="text-slate-300 mt-2">{msg.content}</p>
+                            <p className="text-sm text-slate-500">{member.email}</p>
                           </div>
-                          {!msg.isRead && (
-                            <Button size="sm" variant="ghost" onClick={() => markAsRead(msg.id)}>
-                              Marcar leído
-                            </Button>
-                          )}
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => toggleUserActive(member.id)}
+                          >
+                            {member.isActive ? <Circle className="h-4 w-4 text-green-500" /> : <CheckCircle className="h-4 w-4 text-slate-500" />}
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => toggleUserRole(member.id)}
+                            disabled={member.id === user.id}
+                          >
+                            {member.role === 'admin' ? <Crown className="h-4 w-4 text-yellow-500" /> : <User className="h-4 w-4" />}
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => deleteUser(member.id)}
+                            disabled={member.id === user.id}
+                          >
+                            <UserX className="h-4 w-4 text-red-400" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </div>
           )}
         </main>
       </div>
+
+      {/* Dialog: Editar Tema */}
+      <Dialog open={!!editingTopic} onOpenChange={() => setEditingTopic(null)}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle>Editar Tema</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <Input
+              placeholder="Nombre del tema"
+              value={editTopicName}
+              onChange={(e) => setEditTopicName(e.target.value)}
+              className="bg-slate-700 border-slate-600"
+            />
+            <Textarea
+              placeholder="Descripción (opcional)"
+              value={editTopicDesc}
+              onChange={(e) => setEditTopicDesc(e.target.value)}
+              className="bg-slate-700 border-slate-600"
+            />
+            <Button onClick={editTopic} disabled={loading || !editTopicName.trim()}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Guardar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Editar Subtema */}
+      <Dialog open={!!editingSubtopic} onOpenChange={() => setEditingSubtopic(null)}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle>Editar Subtema</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <Input
+              placeholder="Nombre del subtema"
+              value={editSubtopicName}
+              onChange={(e) => setEditSubtopicName(e.target.value)}
+              className="bg-slate-700 border-slate-600"
+            />
+            <Button onClick={editSubtopic} disabled={loading || !editSubtopicName.trim()}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Guardar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog: Perfil */}
       <Dialog open={showProfile} onOpenChange={setShowProfile}>
@@ -1295,58 +1147,55 @@ export default function ForumPage() {
             <DialogTitle>Mi Perfil</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-4">
-            {newKeyGenerated ? (
-              <div className="space-y-4 text-center">
-                <p className="text-green-400">¡Nueva clave generada!</p>
-                <div className="bg-slate-700 p-4 rounded">
-                  <p className="text-sm text-slate-400 mb-2">Su nueva clave de acceso es:</p>
-                  <code className="text-xl font-bold">{newKeyGenerated}</code>
-                </div>
-                <p className="text-yellow-400 text-sm">¡Guarde esta clave en un lugar seguro!</p>
-                <Button onClick={() => { setNewKeyGenerated(''); setShowProfile(false); }}>
-                  Entendido
-                </Button>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <label className="text-sm text-slate-400">Nombre</label>
-                  <Input
-                    value={profileName}
-                    onChange={(e) => setProfileName(e.target.value)}
-                    className="bg-slate-700 border-slate-600"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-slate-400">Email</label>
-                  <Input
-                    value={profileEmail}
-                    onChange={(e) => setProfileEmail(e.target.value)}
-                    className="bg-slate-700 border-slate-600"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={() => updateProfile(false)} disabled={loading}>
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    Guardar
-                  </Button>
-                  <Button variant="outline" onClick={() => updateProfile(true)} disabled={loading}>
-                    <Key className="h-4 w-4 mr-2" />
-                    Nueva Clave
-                  </Button>
-                </div>
-                {user.role !== 'admin' && (
+            <div>
+              <label className="text-sm text-slate-400">Nombre</label>
+              <Input
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                className="bg-slate-700 border-slate-600 mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-slate-400">Email</label>
+              <Input
+                value={profileEmail}
+                onChange={(e) => setProfileEmail(e.target.value)}
+                className="bg-slate-700 border-slate-600 mt-1"
+              />
+            </div>
+            
+            {newKeyGenerated && (
+              <div className="bg-green-900/30 border border-green-700 rounded p-3">
+                <p className="text-sm text-green-400 mb-1">¡Nueva clave generada!</p>
+                <div className="flex items-center gap-2">
+                  <code className="text-yellow-400 font-mono">{newKeyGenerated}</code>
                   <Button 
-                    variant="destructive" 
-                    className="w-full mt-4"
-                    onClick={deleteAccount}
+                    size="sm" 
+                    variant="ghost" 
+                    onClick={() => copyToClipboard(newKeyGenerated)}
                   >
-                    <UserX className="h-4 w-4 mr-2" />
-                    Darse de Baja
+                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                   </Button>
-                )}
-              </>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">Guárdala en un lugar seguro</p>
+              </div>
             )}
+            
+            <div className="flex gap-2">
+              <Button onClick={() => updateProfile(false)} disabled={loading}>
+                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Guardar
+              </Button>
+              <Button variant="outline" onClick={() => updateProfile(true)} disabled={loading}>
+                Generar Nueva Clave
+              </Button>
+            </div>
+            
+            <div className="pt-4 border-t border-slate-700">
+              <Button variant="destructive" size="sm" onClick={deleteAccount}>
+                Darse de baja
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
