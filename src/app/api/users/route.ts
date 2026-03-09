@@ -3,12 +3,10 @@ import { db } from '@/lib/db';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
 
-// Función para generar clave única
 function generateAccessKey(): string {
   return crypto.randomBytes(8).toString('hex').toUpperCase();
 }
 
-// GET - Listar usuarios (solo admin)
 export async function GET() {
   try {
     const sessionCookie = (await cookies()).get('session');
@@ -40,7 +38,6 @@ export async function GET() {
       orderBy: { createdAt: 'desc' }
     });
 
-    // Ocultar claves privadas (las que el usuario cambió por sí mismo)
     const usersWithPrivateKeys = users.map(user => ({
       ...user,
       accessKey: user.keyIsPrivate ? '••••••••••••••••' : user.accessKey
@@ -53,7 +50,6 @@ export async function GET() {
   }
 }
 
-// POST - Crear nuevo usuario (invitar - solo admin)
 export async function POST(request: NextRequest) {
   try {
     const sessionCookie = (await cookies()).get('session');
@@ -75,13 +71,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Nombre y email son requeridos' }, { status: 400 });
     }
 
-    // Verificar si el email ya existe
     const existingUser = await db.user.findUnique({ where: { email } });
     if (existingUser) {
       return NextResponse.json({ error: 'Ya existe un usuario con ese email' }, { status: 400 });
     }
 
-    // Generar clave única
     const accessKey = generateAccessKey();
 
     const newUser = await db.user.create({
