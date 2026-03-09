@@ -6,23 +6,25 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-directUrl = env("DIRECT_DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // Usuario del foro
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  accessKey    String   @unique // Clave personal única para entrar
-  role         String   @default("member") // "admin" o "member"
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  invitedBy    String?  // ID del admin que invitó
-  
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  accessKey     String   @unique // Clave personal única para entrar
+  keyIsPrivate  Boolean  @default(false) // Si es true, el admin no puede verla
+  role          String   @default("member") // "admin" o "member"
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  invitedBy     String?  // ID del admin que invitó
+  lastActiveAt  DateTime @default(now()) // Última actividad del usuario
+
   // Relaciones
   posts            Post[]
   chatMessages     ChatMessage[]
@@ -45,7 +47,7 @@ model Topic {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdBy   String
-  
+
   // Relaciones
   subtopics    Subtopic[]
   chatMessages ChatMessage[]
@@ -59,7 +61,7 @@ model Subtopic {
   name      String
   createdAt DateTime @default(now())
   createdBy String
-  
+
   // Relaciones
   topic    Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
   posts    Post[]
@@ -72,13 +74,16 @@ model Post {
   subtopicId String
   userId     String
   content    String
+  parentId   String?  // Para respuestas/hilos (null = post principal)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  
+
   // Relaciones
-  subtopic Subtopic @relation(fields: [subtopicId], references: [id], onDelete: Cascade)
-  author   User     @relation(fields: [userId], references: [id])
-  likes    Like[]
+  subtopic  Subtopic  @relation(fields: [subtopicId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [userId], references: [id])
+  likes     Like[]
+  parent    Post?     @relation("PostReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Post[]    @relation("PostReplies")
 }
 
 // Mensajes del chat de brainstorming por tema
@@ -88,7 +93,7 @@ model ChatMessage {
   userId    String
   message   String
   createdAt DateTime @default(now())
-  
+
   // Relaciones
   topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id])
@@ -100,11 +105,11 @@ model Like {
   postId String
   userId String
   type   String // "like" o "dislike"
-  
+
   // Relaciones
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id])
-  
+
   @@unique([postId, userId]) // Un usuario solo puede dar like/dislike una vez por post
 }
 
@@ -117,7 +122,7 @@ model Message {
   content     String
   isRead      Boolean  @default(false)
   createdAt   DateTime @default(now())
-  
+
   // Relaciones
   sender   User  @relation("SentMessages", fields: [senderId], references: [id])
   receiver User  @relation("ReceivedMessages", fields: [receiverId], references: [id])
@@ -131,7 +136,7 @@ model AccessAttempt {
   success   Boolean
   ipAddress String?
   createdAt DateTime @default(now())
-  
+
   // Relaciones
   user User? @relation(fields: [userId], references: [id])
 }
