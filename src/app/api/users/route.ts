@@ -32,13 +32,21 @@ export async function GET() {
         role: true,
         isActive: true,
         createdAt: true,
+        lastActiveAt: true,
         accessKey: true,
+        keyIsPrivate: true,
         inviter: { select: { name: true } }
       },
       orderBy: { createdAt: 'desc' }
     });
 
-    return NextResponse.json({ users });
+    // Ocultar claves privadas (las que el usuario cambió por sí mismo)
+    const usersWithPrivateKeys = users.map(user => ({
+      ...user,
+      accessKey: user.keyIsPrivate ? '••••••••••••••••' : user.accessKey
+    }));
+
+    return NextResponse.json({ users: usersWithPrivateKeys });
   } catch (error) {
     console.error('Error listando usuarios:', error);
     return NextResponse.json({ error: 'Error interno' }, { status: 500 });
