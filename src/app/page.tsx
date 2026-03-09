@@ -77,6 +77,7 @@ interface Member {
   role: string;
   isActive: boolean;
   accessKey: string;
+  keyIsPrivate?: boolean;
   createdAt: string;
   lastActiveAt?: string;
   inviter?: { name: string };
@@ -125,8 +126,682 @@ export default function ForumPage() {
   const [unreadCount, setUnreadCount] = useState(0);
   
   // Estados de formularios
-  const
-      // RENDER PRINCIPAL
+  const [newTopicName, setNewTopicName] = useState('');
+  const [newTopicDesc, setNewTopicDesc] = useState('');
+  const [newSubtopicName, setNewSubtopicName] = useState('');
+  const [newPostContent, setNewPostContent] = useState('');
+  const [newChatMessage, setNewChatMessage] = useState('');
+  const [newMessageRecipient, setNewMessageRecipient] = useState('');
+  const [newMessageSubject, setNewMessageSubject] = useState('');
+  const [newMessageContent, setNewMessageContent] = useState('');
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  
+  // Estados de UI
+  const [editingPost, setEditingPost] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [showNewTopic, setShowNewTopic] = useState(false);
+  const [showNewSubtopic, setShowNewSubtopic] = useState(false);
+  const [showNewMessage, setShowNewMessage] = useState(false);
+  const [showInviteUser, setShowInviteUser] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [newKeyGenerated, setNewKeyGenerated] = useState('');
+  const [loading, setLoading] = useState(false);
+  
+  // Estados de edición
+  const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
+  const [editingSubtopic, setEditingSubtopic] = useState<Subtopic | null>(null);
+  const [editTopicName, setEditTopicName] = useState('');
+  const [editTopicDesc, setEditTopicDesc] = useState('');
+  const [editSubtopicName, setEditSubtopicName] = useState('');
+  
+  // Estados de respuestas
+  const [replyingTo, setReplyingTo] = useState<Post | null>(null);
+  const [replyContent, setReplyContent] = useState('');
+  
+  // Estados de búsqueda
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<{ topics: SearchResult[]; subtopics: SearchResult[]; posts: SearchResult[] } | null>(null);
+  const [showSearch, setShowSearch] = useState(false);
+  
+  // Estados de mensajes
+  const [messageTab, setMessageTab] = useState<'received' | 'sent'>('received');
+  
+  // Estado para mostrar clave de invitado
+  const [invitedUserKey, setInvitedUserKey] = useState<{name: string; email: string; accessKey: string} | null>(null);
+  const [copied, setCopied] = useState(false);
+  
+  const chatRef = useRef<HTMLDivElement>(null);
+
+  // Funciones de datos
+  const loadTopics = async () => {
+    try {
+      const res = await fetch('/api/topics');
+      const data = await res.json();
+      setTopics(data.topics || []);
+    } catch (e) {
+      console.error('Error loading topics:', e);
+    }
+  };
+
+  const loadMembers = async () => {
+    try {
+      const res = await fetch('/api/users');
+      const data = await res.json();
+      setMembers(data.users || []);
+    } catch (e) {
+      console.error('Error loading members:', e);
+    }
+  };
+
+  const loadAllMembers = async () => {
+    try {
+      const res = await fetch('/api/members');
+      const data = await res.json();
+      setAllMembers(data.members || []);
+    } catch (e) {
+      console.error('Error loading all members:', e);
+    }
+  };
+
+  const checkSession = async () => {
+    try {
+      const res = await fetch('/api/auth/session');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.authenticated) {
+          setUser(data.user);
+          setProfileName(data.user.name);
+          setProfileEmail(data.user.email);
+          loadTopics();
+          loadAllMembers();
+          if (data.user.role === 'admin') {
+            loadMembers();
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error checking session:', e);
+    }
+    setCheckingSession(false);
+  };
+
+  const checkInit = async () => {
+    try {
+      const res = await fetch('/api/init');
+      const data = await res.json();
+      setNeedsInit(!data.initialized);
+    } catch (e) {
+      console.error('Error checking init:', e);
+    }
+  };
+
+  useEffect(() => {
+    checkSession();
+    checkInit();
+  }, []);
+
+  useEffect(() => {
+    if (waitTime > 0) {
+      const timer = setTimeout(() => setWaitTime(waitTime - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [waitTime]);
+
+  useEffect(() => {
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
+  const handleInit = async () => {
+    if (!confirm('¿Desea inicializar el sistema? Se creará una cuenta de administrador.')) return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch('/api/init', { method: 'POST' });
+      const data = await res.json();
+      
+      if (data.success) {
+        alert(`¡Administrador creado!\n\nSu clave de acceso es: ${data.accessKey}\n\n¡GUARDE ESTA CLAVE EN UN LUGAR SEGURO!`);
+        setNeedsInit(false);
+      } else {
+        alert(data.error || 'Error al inicializar');
+      }
+    } catch (e) {
+      alert('Error de conexión');
+    }
+    setLoading(false);
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (blocked || waitTime > 0) return;
+    
+    setLoginLoading(true);
+    setLoginError('');
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessKey: accessKey.toUpperCase() })
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setUser(data.user);
+        setProfileName(data.user.name);
+        setProfileEmail(data.user.email);
+        loadTopics();
+        loadAllMembers();
+        if (data.user.role === 'admin') {
+          loadMembers();
+        }
+      } else {
+        setLoginError(data.error || 'Clave incorrecta');
+        if (data.waitTime) setWaitTime(data.waitTime);
+        if (data.blocked) setBlocked(true);
+        else if (data.attemptsLeft !== undefined) {
+          setAttemptsLeft(data.attemptsLeft);
+          setWaitTime(5);
+        }
+      }
+    } catch (e) {
+      setLoginError('Error de conexión');
+    }
+    
+    setLoginLoading(false);
+  };
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    setUser(null);
+    setView('forum');
+  };
+
+  const loadPosts = async (subtopicId: string) => {
+    try {
+      const res = await fetch(`/api/posts?subtopicId=${subtopicId}`);
+      const data = await res.json();
+      setPosts(data.posts || []);
+    } catch (e) {
+      console.error('Error loading posts:', e);
+    }
+  };
+
+  const loadChat = async (topicId: string) => {
+    try {
+      const res = await fetch(`/api/chat?topicId=${topicId}`);
+      const data = await res.json();
+      setChatMessages(data.messages || []);
+    } catch (e) {
+      console.error('Error loading chat:', e);
+    }
+  };
+
+  const loadMessages = async () => {
+    try {
+      const res = await fetch('/api/messages?type=received');
+      const data = await res.json();
+      setMessages(data.messages || []);
+      setUnreadCount(data.messages?.filter((m: Message) => !m.isRead).length || 0);
+    } catch (e) {
+      console.error('Error loading messages:', e);
+    }
+  };
+
+  const loadSentMessages = async () => {
+    try {
+      const res = await fetch('/api/messages?type=sent');
+      const data = await res.json();
+      setSentMessages(data.messages || []);
+    } catch (e) {
+      console.error('Error loading sent messages:', e);
+    }
+  };
+
+  const goToTopic = (topic: Topic) => {
+    setSelectedTopic(topic);
+    loadChat(topic.id);
+    setView('topic');
+  };
+
+  const goToSubtopic = (subtopic: Subtopic) => {
+    setSelectedSubtopic(subtopic);
+    loadPosts(subtopic.id);
+    setView('subtopic');
+  };
+
+  const goToChat = () => {
+    if (selectedTopic) {
+      loadChat(selectedTopic.id);
+      setView('chat');
+    }
+  };
+
+  const goToAdmin = () => {
+    loadMembers();
+    setView('admin');
+  };
+
+  const goToProfile = () => {
+    setShowProfile(true);
+  };
+
+  const goToMessages = () => {
+    loadMessages();
+    loadSentMessages();
+    setView('messages');
+  };
+
+  const createTopic = async () => {
+    if (!newTopicName.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/topics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newTopicName, description: newTopicDesc })
+      });
+      if (res.ok) {
+        setNewTopicName('');
+        setNewTopicDesc('');
+        setShowNewTopic(false);
+        loadTopics();
+      }
+    } catch (e) {
+      console.error('Error creating topic:', e);
+    }
+    setLoading(false);
+  };
+
+  const deleteTopic = async (id: string) => {
+    if (!confirm('¿Eliminar este tema y todo su contenido?')) return;
+    try {
+      await fetch('/api/topics', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      loadTopics();
+    } catch (e) {
+      console.error('Error deleting topic:', e);
+    }
+  };
+
+  const editTopic = async () => {
+    if (!editingTopic || !editTopicName.trim()) return;
+    setLoading(true);
+    try {
+      await fetch('/api/topics', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingTopic.id, name: editTopicName, description: editTopicDesc })
+      });
+      setEditingTopic(null);
+      loadTopics();
+    } catch (e) {
+      console.error('Error editing topic:', e);
+    }
+    setLoading(false);
+  };
+
+  const createSubtopic = async () => {
+    if (!newSubtopicName.trim() || !selectedTopic) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/topics/subtopics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId: selectedTopic.id, name: newSubtopicName })
+      });
+      if (res.ok) {
+        setNewSubtopicName('');
+        setShowNewSubtopic(false);
+        loadTopics();
+        const updated = topics.find(t => t.id === selectedTopic.id);
+        if (updated) setSelectedTopic(updated);
+      }
+    } catch (e) {
+      console.error('Error creating subtopic:', e);
+    }
+    setLoading(false);
+  };
+
+  const editSubtopic = async () => {
+    if (!editingSubtopic || !editSubtopicName.trim()) return;
+    setLoading(true);
+    try {
+      await fetch('/api/topics/subtopics', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingSubtopic.id, name: editSubtopicName })
+      });
+      setEditingSubtopic(null);
+      loadTopics();
+      if (selectedTopic) {
+        const updated = topics.find(t => t.id === selectedTopic.id);
+        if (updated) setSelectedTopic(updated);
+      }
+    } catch (e) {
+      console.error('Error editing subtopic:', e);
+    }
+    setLoading(false);
+  };
+
+  const deleteSubtopic = async (id: string) => {
+    if (!confirm('¿Eliminar este subtema y todas sus publicaciones?')) return;
+    try {
+      await fetch('/api/topics/subtopics', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      loadTopics();
+      if (selectedTopic) {
+        const updated = topics.find(t => t.id === selectedTopic.id);
+        if (updated) setSelectedTopic(updated);
+      }
+    } catch (e) {
+      console.error('Error deleting subtopic:', e);
+    }
+  };
+
+  const createPost = async () => {
+    if (!newPostContent.trim() || !selectedSubtopic) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subtopicId: selectedSubtopic.id, content: newPostContent })
+      });
+      if (res.ok) {
+        setNewPostContent('');
+        loadPosts(selectedSubtopic.id);
+      }
+    } catch (e) {
+      console.error('Error creating post:', e);
+    }
+    setLoading(false);
+  };
+
+  const createReply = async () => {
+    if (!replyContent.trim() || !replyingTo || !selectedSubtopic) return;
+    setLoading(true);
+    try {
+      await fetch('/api/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          subtopicId: selectedSubtopic.id, 
+          content: replyContent,
+          parentId: replyingTo.id 
+        })
+      });
+      setReplyContent('');
+      setReplyingTo(null);
+      loadPosts(selectedSubtopic.id);
+    } catch (e) {
+      console.error('Error creating reply:', e);
+    }
+    setLoading(false);
+  };
+
+  const updatePost = async (id: string) => {
+    if (!editContent.trim()) return;
+    try {
+      await fetch('/api/posts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, content: editContent })
+      });
+      setEditingPost(null);
+      if (selectedSubtopic) loadPosts(selectedSubtopic.id);
+    } catch (e) {
+      console.error('Error updating post:', e);
+    }
+  };
+
+  const deletePost = async (id: string) => {
+    if (!confirm('¿Eliminar esta publicación?')) return;
+    try {
+      await fetch('/api/posts', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      if (selectedSubtopic) loadPosts(selectedSubtopic.id);
+    } catch (e) {
+      console.error('Error deleting post:', e);
+    }
+  };
+
+  const handleLike = async (postId: string, type: 'like' | 'dislike') => {
+    try {
+      await fetch('/api/likes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId, type })
+      });
+      if (selectedSubtopic) loadPosts(selectedSubtopic.id);
+    } catch (e) {
+      console.error('Error with like:', e);
+    }
+  };
+
+  const sendChatMessage = async () => {
+    if (!newChatMessage.trim() || !selectedTopic) return;
+    try {
+      await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId: selectedTopic.id, message: newChatMessage })
+      });
+      setNewChatMessage('');
+      loadChat(selectedTopic.id);
+    } catch (e) {
+      console.error('Error sending chat message:', e);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!newMessageContent.trim() || !newMessageRecipient) return;
+    try {
+      await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          receiverId: newMessageRecipient, 
+          subject: newMessageSubject, 
+          content: newMessageContent 
+        })
+      });
+      setNewMessageRecipient('');
+      setNewMessageSubject('');
+      setNewMessageContent('');
+      setShowNewMessage(false);
+      loadSentMessages();
+    } catch (e) {
+      console.error('Error sending message:', e);
+    }
+  };
+
+  const markAsRead = async (id: string) => {
+    try {
+      await fetch('/api/messages', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      loadMessages();
+    } catch (e) {
+      console.error('Error marking as read:', e);
+    }
+  };
+
+  const inviteUser = async () => {
+    if (!newUserName.trim() || !newUserEmail.trim()) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newUserName, email: newUserEmail })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setInvitedUserKey({
+          name: data.user.name,
+          email: data.user.email,
+          accessKey: data.user.accessKey
+        });
+        setNewUserName('');
+        setNewUserEmail('');
+        setShowInviteUser(false);
+        loadMembers();
+      } else {
+        alert(data.error || 'Error al invitar');
+      }
+    } catch (e) {
+      console.error('Error inviting user:', e);
+    }
+    setLoading(false);
+  };
+  
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.error('Error copying to clipboard:', e);
+    }
+  };
+
+  const toggleUserActive = async (userId: string) => {
+    try {
+      await fetch('/api/admin/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, action: 'toggleActive' })
+      });
+      loadMembers();
+    } catch (e) {
+      console.error('Error toggling user active:', e);
+    }
+  };
+
+  const toggleUserRole = async (userId: string) => {
+    try {
+      await fetch('/api/admin/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, action: 'toggleRole' })
+      });
+      loadMembers();
+    } catch (e) {
+      console.error('Error toggling user role:', e);
+    }
+  };
+
+  const deleteUser = async (userId: string) => {
+    if (!confirm('¿Está seguro de eliminar este usuario? Esta acción no se puede deshacer.')) return;
+    try {
+      await fetch('/api/admin/users', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      loadMembers();
+    } catch (e) {
+      console.error('Error deleting user:', e);
+    }
+  };
+
+  const updateProfile = async (generateNewKey: boolean = false) => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/users/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name: profileName, 
+          email: profileEmail,
+          newAccessKey: generateNewKey
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUser(data.user);
+        if (generateNewKey && data.user.accessKey) {
+          setNewKeyGenerated(data.user.accessKey);
+        } else {
+          setShowProfile(false);
+        }
+      }
+    } catch (e) {
+      console.error('Error updating profile:', e);
+    }
+    setLoading(false);
+  };
+
+  const deleteAccount = async () => {
+    if (!confirm('¿Está seguro de darse de baja? Esta acción no se puede deshacer.')) return;
+    try {
+      await fetch('/api/users/profile', { method: 'DELETE' });
+      handleLogout();
+    } catch (e) {
+      console.error('Error deleting account:', e);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim() || searchQuery.length < 2) {
+      setSearchResults(null);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
+      const data = await res.json();
+      setSearchResults(data.results);
+      setShowSearch(true);
+    } catch (e) {
+      console.error('Error searching:', e);
+    }
+  };
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const isUserOnline = (lastActiveAt?: string) => {
+    if (!lastActiveAt) return false;
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    return new Date(lastActiveAt) > fiveMinutesAgo;
+  };
+  
+  const getInvitationMessage = () => {
+    if (!invitedUserKey) return '';
+    return `¡Has sido invitado al foro "Lo Mejor de España"!
+
+Tu clave de acceso es: ${invitedUserKey.accessKey}
+
+Entra en: https://lomejordeespaña.es
+
+¡Te esperamos!`;
+  };
+    // RENDER PRINCIPAL
   if (checkingSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -141,15 +816,14 @@ export default function ForumPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
         <Card className="w-full max-w-md shadow-2xl border-slate-700 bg-slate-800/50 backdrop-blur">
           <CardHeader className="text-center space-y-4">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-red-600 to-yellow-500 rounded-full flex items-center justify-center shadow-lg">
-              <span className="text-2xl font-bold text-white">ES</span>
+            <div className="mx-auto w-20 h-20 bg-gradient-to-br from-red-600 to-yellow-500 rounded-full flex items-center justify-center shadow-lg">
+              <svg viewBox="0 0 24 24" className="w-12 h-12 text-white" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+              </svg>
             </div>
             <CardTitle className="text-3xl font-bold bg-gradient-to-r from-red-500 via-yellow-500 to-red-500 bg-clip-text text-transparent">
               Lo Mejor De España
             </CardTitle>
-            <CardDescription className="text-slate-400 text-lg">
-              Foro Privado
-            </CardDescription>
           </CardHeader>
           
           <CardContent>
@@ -210,10 +884,6 @@ export default function ForumPage() {
                 >
                   {loginLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Verificando...</> : 'Entrar'}
                 </Button>
-                
-                <p className="text-slate-500 text-xs text-center mt-4">
-                  Foro exclusivo de invitación privada
-                </p>
               </form>
             )}
           </CardContent>
@@ -315,7 +985,6 @@ export default function ForumPage() {
             </h2>
           </div>
           <div className="flex items-center gap-4">
-            {/* Barra de búsqueda */}
             <div className="relative">
               <div className="flex items-center gap-2">
                 <Input
@@ -331,7 +1000,6 @@ export default function ForumPage() {
                 </Button>
               </div>
               
-              {/* Resultados de búsqueda */}
               {showSearch && searchResults && (
                 <div className="absolute right-0 top-12 w-96 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
                   <div className="p-2 border-b border-slate-700 flex justify-between items-center">
@@ -425,7 +1093,7 @@ export default function ForumPage() {
 
         {/* Área de contenido */}
         <main className="flex-1 overflow-auto p-4">
-          {/* Vista: Foro principal (lista de temas) */}
+          {/* Vista: Foro principal */}
           {view === 'forum' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -501,7 +1169,8 @@ export default function ForumPage() {
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setEditingTopic(topic);
                                     setEditTopicName(topic.name);
                                     setEditTopicDesc(topic.description || '');
@@ -512,7 +1181,10 @@ export default function ForumPage() {
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
-                                  onClick={() => deleteTopic(topic.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteTopic(topic.id);
+                                  }}
                                 >
                                   <Trash2 className="h-4 w-4 text-red-400" />
                                 </Button>
@@ -530,7 +1202,7 @@ export default function ForumPage() {
               </div>
             </div>
           )}
-                    {/* Vista: Tema (lista de subtemas y chat) */}
+                    {/* Vista: Tema (subtemas y chat) */}
           {view === 'topic' && selectedTopic && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -577,31 +1249,30 @@ export default function ForumPage() {
                     </CardContent>
                   </Card>
                 ) : (
-                  selectedTopic.subtopics.map((subtopic) => (
+                  selectedTopic.subtopics.map((st) => (
                     <Card 
-                      key={subtopic.id} 
-                      className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition-colors"
+                      key={st.id} 
+                      className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition-colors cursor-pointer"
+                      onClick={() => goToSubtopic(st)}
                     >
                       <CardContent className="p-3">
                         <div className="flex items-center justify-between">
-                          <div 
-                            className="flex-1 cursor-pointer"
-                            onClick={() => goToSubtopic(subtopic)}
-                          >
-                            <h4 className="font-medium">{subtopic.name}</h4>
+                          <div>
+                            <h4 className="font-medium">{st.name}</h4>
                             <p className="text-sm text-slate-500">
-                              Por {subtopic.creator.name} • {subtopic._count.posts} publicaciones
+                              Por {st.creator.name} • {st._count.posts} publicaciones
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
-                            {(user.role === 'admin' || user.id === subtopic.creator.id) && (
+                            {(user.role === 'admin' || user.id === st.creator.id) && (
                               <>
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
-                                  onClick={() => {
-                                    setEditingSubtopic(subtopic);
-                                    setEditSubtopicName(subtopic.name);
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingSubtopic(st);
+                                    setEditSubtopicName(st.name);
                                   }}
                                 >
                                   <Edit className="h-4 w-4" />
@@ -609,15 +1280,17 @@ export default function ForumPage() {
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
-                                  onClick={() => deleteSubtopic(subtopic.id)}
+                                  className="text-red-400 hover:text-red-300"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteSubtopic(st.id);
+                                  }}
                                 >
-                                  <Trash2 className="h-4 w-4 text-red-400" />
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
                               </>
                             )}
-                            <Button variant="ghost" size="sm" onClick={() => goToSubtopic(subtopic)}>
-                              <ChevronRight className="h-4 w-4" />
-                            </Button>
+                            <ChevronRight className="h-4 w-4 text-slate-400" />
                           </div>
                         </div>
                       </CardContent>
@@ -630,36 +1303,36 @@ export default function ForumPage() {
 
           {/* Vista: Chat del tema */}
           {view === 'chat' && selectedTopic && (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-[calc(100vh-12rem)]">
               <div 
                 ref={chatRef}
-                className="flex-1 overflow-y-auto space-y-2 mb-4 p-2 bg-slate-800/30 rounded-lg"
+                className="flex-1 overflow-y-auto space-y-3 p-4 bg-slate-800/30 rounded-lg"
               >
                 {chatMessages.length === 0 ? (
-                  <p className="text-center text-slate-400 py-4">No hay mensajes en el chat.</p>
+                  <p className="text-center text-slate-400 py-8">No hay mensajes en el chat.</p>
                 ) : (
                   chatMessages.map((msg) => (
-                    <div key={msg.id} className="flex gap-2">
+                    <div key={msg.id} className="flex gap-3">
                       <div className="flex-shrink-0">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-600 to-yellow-500 flex items-center justify-center text-sm font-bold">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-yellow-500 flex items-center justify-center font-bold">
                           {msg.user.name.charAt(0).toUpperCase()}
                         </div>
                       </div>
-                      <div className="flex-1 bg-slate-700/50 rounded-lg p-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm">{msg.user.name}</span>
+                      <div className="flex-1 bg-slate-700/50 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium">{msg.user.name}</span>
                           <span className="text-xs text-slate-500">{formatDate(msg.createdAt)}</span>
                         </div>
-                        <p className="text-slate-300">{msg.message}</p>
+                        <p className="text-slate-200">{msg.message}</p>
                       </div>
                     </div>
                   ))
                 )}
               </div>
               
-              <div className="flex gap-2">
+              <div className="mt-4 flex gap-2">
                 <Input
-                  placeholder="Escribir mensaje..."
+                  placeholder="Escribe un mensaje..."
                   value={newChatMessage}
                   onChange={(e) => setNewChatMessage(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
@@ -672,126 +1345,133 @@ export default function ForumPage() {
             </div>
           )}
 
-          {/* Vista: Subtema (lista de posts) */}
+          {/* Vista: Subtema (posts) */}
           {view === 'subtopic' && selectedSubtopic && (
             <div className="space-y-4">
-              {/* Formulario de nueva publicación */}
-              <Card className="bg-slate-800/50 border-slate-700">
+              <Card className="bg-slate-800/30 border-slate-700">
                 <CardContent className="p-4">
                   <Textarea
-                    placeholder="Escribe una nueva publicación..."
+                    placeholder="Escribe tu publicación..."
                     value={newPostContent}
                     onChange={(e) => setNewPostContent(e.target.value)}
-                    className="bg-slate-700 border-slate-600 mb-2"
-                    rows={3}
+                    className="bg-slate-700 border-slate-600 min-h-[100px]"
                   />
-                  <Button onClick={createPost} disabled={loading || !newPostContent.trim()}>
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    Publicar
-                  </Button>
+                  <div className="flex justify-end mt-2">
+                    <Button onClick={createPost} disabled={loading || !newPostContent.trim()}>
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Publicar
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
-
-              {/* Lista de publicaciones */}
-              <div className="space-y-4">
-                {posts.length === 0 ? (
+              
+              <div className="space-y-3">
+                {posts.filter(p => !p.parentId).length === 0 ? (
                   <Card className="bg-slate-800/50 border-slate-700">
                     <CardContent className="p-6 text-center text-slate-400">
-                      No hay publicaciones aún. ¡Sé el primero!
+                      Sé el primero en publicar.
                     </CardContent>
                   </Card>
                 ) : (
-                  posts.map((post) => (
+                  posts.filter(p => !p.parentId).map((post) => (
                     <Card key={post.id} className="bg-slate-800/50 border-slate-700">
                       <CardContent className="p-4">
-                        {editingPost === post.id ? (
-                          <div className="space-y-2">
-                            <Textarea
-                              value={editContent}
-                              onChange={(e) => setEditContent(e.target.value)}
-                              className="bg-slate-700 border-slate-600"
-                            />
-                            <div className="flex gap-2">
-                              <Button size="sm" onClick={() => updatePost(post.id)}>Guardar</Button>
-                              <Button size="sm" variant="ghost" onClick={() => setEditingPost(null)}>Cancelar</Button>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 text-sm text-slate-400 mb-2">
+                              <User className="h-3 w-3" />
+                              <span className="font-medium text-slate-300">{post.author.name}</span>
+                              <span>•</span>
+                              <span>{formatDate(post.createdAt)}</span>
+                              {post.updatedAt !== post.createdAt && (
+                                <span className="text-slate-500">(editado)</span>
+                              )}
                             </div>
-                          </div>
-                        ) : (
-                          <>
-                            <p className="whitespace-pre-wrap">{post.content}</p>
-                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-700">
-                              <div className="text-sm text-slate-500">
-                                Por {post.author.name} • {formatDate(post.createdAt)}
-                                {post.updatedAt !== post.createdAt && ' (editado)'}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {/* Likes */}
-                                <div className="flex items-center gap-1">
-                                  <Button 
-                                    size="sm" 
-                                    variant={post.userLike === 'like' ? 'default' : 'ghost'}
-                                    onClick={() => handleLike(post.id, 'like')}
-                                  >
-                                    <ThumbsUp className="h-4 w-4" />
-                                  </Button>
-                                  <span className="text-sm">{post.likesCount}</span>
-                                  <Button 
-                                    size="sm" 
-                                    variant={post.userLike === 'dislike' ? 'default' : 'ghost'}
-                                    onClick={() => handleLike(post.id, 'dislike')}
-                                  >
-                                    <ThumbsDown className="h-4 w-4" />
-                                  </Button>
-                                  <span className="text-sm">{post.dislikesCount}</span>
+                            
+                            {editingPost === post.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={editContent}
+                                  onChange={(e) => setEditContent(e.target.value)}
+                                  className="bg-slate-700 border-slate-600"
+                                />
+                                <div className="flex gap-2">
+                                  <Button size="sm" onClick={() => updatePost(post.id)}>Guardar</Button>
+                                  <Button size="sm" variant="ghost" onClick={() => setEditingPost(null)}>Cancelar</Button>
                                 </div>
-                                
+                              </div>
+                            ) : (
+                              <p className="whitespace-pre-wrap text-slate-200">{post.content}</p>
+                            )}
+                            
+                            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-700">
+                              <div className="flex items-center gap-2">
                                 <Button 
                                   size="sm" 
-                                  variant="ghost"
-                                  onClick={() => {
-                                    setReplyingTo(post);
-                                    setReplyContent('');
-                                  }}
+                                  variant={post.userLike === 'like' ? 'default' : 'ghost'}
+                                  onClick={() => handleLike(post.id, 'like')}
                                 >
-                                  <Reply className="h-4 w-4" />
+                                  <ThumbsUp className="h-4 w-4" />
                                 </Button>
-                                
-                                {(user.role === 'admin' || user.id === post.author.id) && (
-                                  <>
-                                    <Button 
-                                      size="sm" 
-                                      variant="ghost"
-                                      onClick={() => {
-                                        setEditingPost(post.id);
-                                        setEditContent(post.content);
-                                      }}
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button 
-                                      size="sm" 
-                                      variant="ghost"
-                                      onClick={() => deletePost(post.id)}
-                                    >
-                                      <Trash2 className="h-4 w-4 text-red-400" />
-                                    </Button>
-                                  </>
-                                )}
+                                <span className="text-sm">{post.likesCount}</span>
+                                <Button 
+                                  size="sm" 
+                                  variant={post.userLike === 'dislike' ? 'default' : 'ghost'}
+                                  onClick={() => handleLike(post.id, 'dislike')}
+                                >
+                                  <ThumbsDown className="h-4 w-4" />
+                                </Button>
+                                <span className="text-sm">{post.dislikesCount}</span>
                               </div>
+                              
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                onClick={() => {
+                                  setReplyingTo(post);
+                                  setReplyContent('');
+                                }}
+                              >
+                                <Reply className="h-4 w-4 mr-1" />Responder
+                              </Button>
+                              
+                              {(user.role === 'admin' || user.id === post.author.id) && !editingPost && (
+                                <>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost"
+                                    onClick={() => {
+                                      setEditingPost(post.id);
+                                      setEditContent(post.content);
+                                    }}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost"
+                                    className="text-red-400 hover:text-red-300"
+                                    onClick={() => deletePost(post.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
                             </div>
                             
                             {/* Formulario de respuesta */}
                             {replyingTo?.id === post.id && (
-                              <div className="mt-3 pt-3 border-t border-slate-700 space-y-2">
-                                <p className="text-sm text-slate-400">Respondiendo a {post.author.name}</p>
+                              <div className="mt-4 pt-4 border-t border-slate-700">
+                                <p className="text-sm text-slate-400 mb-2">Respondiendo a {post.author.name}</p>
                                 <Textarea
                                   value={replyContent}
                                   onChange={(e) => setReplyContent(e.target.value)}
                                   placeholder="Escribe tu respuesta..."
-                                  className="bg-slate-700 border-slate-600"
+                                  className="bg-slate-700 border-slate-600 min-h-[80px]"
                                 />
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 mt-2">
                                   <Button size="sm" onClick={createReply} disabled={loading || !replyContent.trim()}>
+                                    {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                                     Responder
                                   </Button>
                                   <Button size="sm" variant="ghost" onClick={() => setReplyingTo(null)}>
@@ -802,13 +1482,23 @@ export default function ForumPage() {
                             )}
                             
                             {/* Respuestas */}
-                            {post.repliesCount > 0 && (
-                              <div className="mt-3 pt-3 border-t border-slate-700">
-                                <p className="text-sm text-slate-500">{post.repliesCount} respuestas</p>
+                            {posts.filter(p => p.parentId === post.id).length > 0 && (
+                              <div className="mt-4 pt-4 border-t border-slate-700 space-y-3">
+                                {posts.filter(p => p.parentId === post.id).map((reply) => (
+                                  <div key={reply.id} className="bg-slate-700/30 rounded p-3 ml-4">
+                                    <div className="flex items-center gap-2 text-sm text-slate-400 mb-1">
+                                      <User className="h-3 w-3" />
+                                      <span className="font-medium text-slate-300">{reply.author.name}</span>
+                                      <span>•</span>
+                                      <span>{formatDate(reply.createdAt)}</span>
+                                    </div>
+                                    <p className="text-slate-200">{reply.content}</p>
+                                  </div>
+                                ))}
                               </div>
                             )}
-                          </>
-                        )}
+                          </div>
+                        </div>
                       </CardContent>
                     </Card>
                   ))
@@ -817,7 +1507,149 @@ export default function ForumPage() {
             </div>
           )}
 
-          {/* Vista: Mensajes privados */}
+          {/* Vista: Administración */}
+          {view === 'admin' && user.role === 'admin' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Miembros del Foro</h3>
+                <Dialog open={showInviteUser} onOpenChange={setShowInviteUser}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-1">
+                      <Plus className="h-4 w-4" />Invitar Miembro
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-slate-800 border-slate-700">
+                    <DialogHeader>
+                      <DialogTitle>Invitar Nuevo Miembro</DialogTitle>
+                      <DialogDescription>
+                        Se generará una clave de acceso única para el nuevo miembro.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                      <Input
+                        placeholder="Nombre completo"
+                        value={newUserName}
+                        onChange={(e) => setNewUserName(e.target.value)}
+                        className="bg-slate-700 border-slate-600"
+                      />
+                      <Input
+                        placeholder="Correo electrónico"
+                        type="email"
+                        value={newUserEmail}
+                        onChange={(e) => setNewUserEmail(e.target.value)}
+                        className="bg-slate-700 border-slate-600"
+                      />
+                      <Button onClick={inviteUser} disabled={loading || !newUserName.trim() || !newUserEmail.trim()}>
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        Invitar
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+              
+              <Card className="bg-slate-800/50 border-slate-700">
+                <CardContent className="p-0 overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-700">
+                        <th className="text-left p-3 text-sm font-medium text-slate-400">Nombre</th>
+                        <th className="text-left p-3 text-sm font-medium text-slate-400">Email</th>
+                        <th className="text-left p-3 text-sm font-medium text-slate-400">Clave</th>
+                        <th className="text-left p-3 text-sm font-medium text-slate-400">Rol</th>
+                        <th className="text-left p-3 text-sm font-medium text-slate-400">Estado</th>
+                        <th className="text-left p-3 text-sm font-medium text-slate-400">En línea</th>
+                        <th className="text-left p-3 text-sm font-medium text-slate-400">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {members.map((member) => (
+                        <tr key={member.id} className="border-b border-slate-700/50">
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              {member.name}
+                              {member.role === 'admin' && <Crown className="h-3 w-3 text-yellow-500" />}
+                            </div>
+                          </td>
+                          <td className="p-3 text-slate-400">{member.email}</td>
+                          <td className="p-3">
+                            {member.keyIsPrivate ? (
+                              <div className="flex items-center gap-1">
+                                <code className="text-xs bg-slate-700 px-2 py-1 rounded text-slate-500">••••••••••••••••</code>
+                                <Lock className="h-3 w-3 text-slate-500" title="Clave privada" />
+                              </div>
+                            ) : (
+                              <code className="text-xs bg-slate-700 px-2 py-1 rounded">{member.accessKey}</code>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <Badge variant={member.role === 'admin' ? 'default' : 'outline'}>
+                              {member.role === 'admin' ? 'Admin' : 'Miembro'}
+                            </Badge>
+                          </td>
+                          <td className="p-3">
+                            <Badge variant={member.isActive ? 'default' : 'destructive'}>
+                              {member.isActive ? 'Activo' : 'Inactivo'}
+                            </Badge>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              {isUserOnline(member.lastActiveAt) ? (
+                                <>
+                                  <Circle className="h-3 w-3 fill-green-500 text-green-500" />
+                                  <span className="text-green-500 text-sm">En línea</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Circle className="h-3 w-3 text-slate-500" />
+                                  <span className="text-slate-500 text-sm">Desconectado</span>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-1">
+                              {member.id !== user.id && (
+                                <>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost"
+                                    onClick={() => toggleUserActive(member.id)}
+                                    title={member.isActive ? 'Desactivar' : 'Activar'}
+                                  >
+                                    {member.isActive ? <Circle className="h-4 w-4 text-green-500" /> : <CheckCircle className="h-4 w-4 text-slate-500" />}
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost"
+                                    onClick={() => toggleUserRole(member.id)}
+                                    title="Cambiar rol"
+                                  >
+                                    {member.role === 'admin' ? <Crown className="h-4 w-4 text-yellow-500" /> : <User className="h-4 w-4" />}
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="ghost"
+                                    className="text-red-400 hover:text-red-300"
+                                    onClick={() => deleteUser(member.id)}
+                                    title="Eliminar"
+                                  >
+                                    <UserX className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Vista: Mensajes */}
           {view === 'messages' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -843,15 +1675,12 @@ export default function ForumPage() {
                         <select 
                           value={newMessageRecipient}
                           onChange={(e) => setNewMessageRecipient(e.target.value)}
-                          className="w-full mt-1 bg-slate-700 border border-slate-600 rounded p-2"
+                          className="w-full mt-1 bg-slate-700 border border-slate-600 rounded p-2 text-white"
                         >
-                          <option value="">Seleccionar destinatario</option>
-                          {allMembers
-                            .filter(m => m.id !== user.id && m.isActive)
-                            .map(m => (
-                              <option key={m.id} value={m.id}>{m.name}</option>
-                            ))
-                          }
+                          <option value="">Seleccionar destinatario...</option>
+                          {allMembers.filter(m => m.id !== user.id).map((m) => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
                         </select>
                       </div>
                       <Input
@@ -861,14 +1690,12 @@ export default function ForumPage() {
                         className="bg-slate-700 border-slate-600"
                       />
                       <Textarea
-                        placeholder="Mensaje..."
+                        placeholder="Contenido del mensaje"
                         value={newMessageContent}
                         onChange={(e) => setNewMessageContent(e.target.value)}
-                        className="bg-slate-700 border-slate-600"
-                        rows={4}
+                        className="bg-slate-700 border-slate-600 min-h-[100px]"
                       />
-                      <Button onClick={sendMessage} disabled={loading || !newMessageRecipient || !newMessageContent.trim()}>
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                      <Button onClick={sendMessage} disabled={!newMessageRecipient || !newMessageContent.trim()}>
                         Enviar
                       </Button>
                     </div>
@@ -881,7 +1708,7 @@ export default function ForumPage() {
                   {messages.length === 0 ? (
                     <Card className="bg-slate-800/50 border-slate-700">
                       <CardContent className="p-6 text-center text-slate-400">
-                        No tienes mensajes.
+                        No tienes mensajes recibidos.
                       </CardContent>
                     </Card>
                   ) : (
@@ -965,130 +1792,6 @@ export default function ForumPage() {
               </TabsContent>
             </div>
           )}
-
-          {/* Vista: Panel de Administración */}
-          {view === 'admin' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Gestión de Usuarios</h3>
-                <Dialog open={showInviteUser} onOpenChange={setShowInviteUser}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1">
-                      <Plus className="h-4 w-4" />Invitar Usuario
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-slate-800 border-slate-700">
-                    <DialogHeader>
-                      <DialogTitle>Invitar Nuevo Usuario</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 pt-4">
-                      <Input
-                        placeholder="Nombre completo"
-                        value={newUserName}
-                        onChange={(e) => setNewUserName(e.target.value)}
-                        className="bg-slate-700 border-slate-600"
-                      />
-                      <Input
-                        placeholder="Email"
-                        type="email"
-                        value={newUserEmail}
-                        onChange={(e) => setNewUserEmail(e.target.value)}
-                        className="bg-slate-700 border-slate-600"
-                      />
-                      <Button onClick={inviteUser} disabled={loading || !newUserName.trim() || !newUserEmail.trim()}>
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                        Invitar
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-              
-              {/* Modal para mostrar clave de invitado */}
-              {invitedUserKey && (
-                <Card className="bg-green-900/30 border-green-700 mb-4">
-                  <CardContent className="p-4">
-                    <h4 className="font-semibold text-green-400 mb-2">¡Usuario invitado!</h4>
-                    <p className="text-sm text-slate-300 mb-2">
-                      <strong>{invitedUserKey.name}</strong> ({invitedUserKey.email})
-                    </p>
-                    <div className="flex items-center gap-2 bg-slate-800 p-2 rounded mb-3">
-                      <Key className="h-4 w-4 text-yellow-500" />
-                      <code className="text-yellow-400 font-mono">{invitedUserKey.accessKey}</code>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={() => copyToClipboard(invitedUserKey.accessKey)}
-                      >
-                        {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                    <div className="bg-slate-800 p-3 rounded text-sm mb-3">
-                      <p className="text-slate-400 mb-1">Mensaje para compartir:</p>
-                      <pre className="text-slate-300 whitespace-pre-wrap text-xs">{getInvitationMessage()}</pre>
-                    </div>
-                    <Button size="sm" variant="outline" onClick={() => setInvitedUserKey(null)}>
-                      Cerrar
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-              
-              <div className="grid gap-3">
-                {members.map((member) => (
-                  <Card key={member.id} className="bg-slate-800/50 border-slate-700">
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="relative">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-yellow-500 flex items-center justify-center font-bold">
-                              {member.name.charAt(0).toUpperCase()}
-                            </div>
-                            {isUserOnline(member.lastActiveAt) && (
-                              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-800"></div>
-                            )}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{member.name}</span>
-                              {member.role === 'admin' && <Crown className="h-4 w-4 text-yellow-500" />}
-                              {!member.isActive && <Badge variant="destructive" className="text-xs">Inactivo</Badge>}
-                            </div>
-                            <p className="text-sm text-slate-500">{member.email}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            onClick={() => toggleUserActive(member.id)}
-                          >
-                            {member.isActive ? <Circle className="h-4 w-4 text-green-500" /> : <CheckCircle className="h-4 w-4 text-slate-500" />}
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            onClick={() => toggleUserRole(member.id)}
-                            disabled={member.id === user.id}
-                          >
-                            {member.role === 'admin' ? <Crown className="h-4 w-4 text-yellow-500" /> : <User className="h-4 w-4" />}
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            onClick={() => deleteUser(member.id)}
-                            disabled={member.id === user.id}
-                          >
-                            <UserX className="h-4 w-4 text-red-400" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
         </main>
       </div>
 
@@ -1147,55 +1850,119 @@ export default function ForumPage() {
             <DialogTitle>Mi Perfil</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-4">
-            <div>
-              <label className="text-sm text-slate-400">Nombre</label>
-              <Input
-                value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
-                className="bg-slate-700 border-slate-600 mt-1"
-              />
-            </div>
-            <div>
-              <label className="text-sm text-slate-400">Email</label>
-              <Input
-                value={profileEmail}
-                onChange={(e) => setProfileEmail(e.target.value)}
-                className="bg-slate-700 border-slate-600 mt-1"
-              />
-            </div>
-            
-            {newKeyGenerated && (
-              <div className="bg-green-900/30 border border-green-700 rounded p-3">
-                <p className="text-sm text-green-400 mb-1">¡Nueva clave generada!</p>
-                <div className="flex items-center gap-2">
-                  <code className="text-yellow-400 font-mono">{newKeyGenerated}</code>
-                  <Button 
-                    size="sm" 
-                    variant="ghost" 
-                    onClick={() => copyToClipboard(newKeyGenerated)}
-                  >
-                    {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+            {newKeyGenerated ? (
+              <div className="space-y-4 text-center">
+                <p className="text-green-400">¡Nueva clave generada!</p>
+                <div className="bg-slate-700 p-4 rounded">
+                  <p className="text-sm text-slate-400 mb-2">Su nueva clave de acceso es:</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <code className="text-xl font-bold">{newKeyGenerated}</code>
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      onClick={() => copyToClipboard(newKeyGenerated)}
+                    >
+                      {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-yellow-400 text-sm">¡Guarde esta clave en un lugar seguro! El administrador no podrá verla.</p>
+                <Button onClick={() => { setNewKeyGenerated(''); setShowProfile(false); }}>
+                  Entendido
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm text-slate-400">Nombre</label>
+                  <Input
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    className="bg-slate-700 border-slate-600"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm text-slate-400">Email</label>
+                  <Input
+                    value={profileEmail}
+                    onChange={(e) => setProfileEmail(e.target.value)}
+                    className="bg-slate-700 border-slate-600"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={() => updateProfile(false)} disabled={loading}>
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Guardar
+                  </Button>
+                  <Button variant="outline" onClick={() => updateProfile(true)} disabled={loading}>
+                    <Key className="h-4 w-4 mr-2" />
+                    Nueva Clave
                   </Button>
                 </div>
-                <p className="text-xs text-slate-400 mt-1">Guárdala en un lugar seguro</p>
-              </div>
+                {user.role !== 'admin' && (
+                  <Button 
+                    variant="destructive" 
+                    className="w-full mt-4"
+                    onClick={deleteAccount}
+                  >
+                    <UserX className="h-4 w-4 mr-2" />
+                    Darse de Baja
+                  </Button>
+                )}
+              </>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Clave de invitación */}
+      <Dialog open={!!invitedUserKey} onOpenChange={() => setInvitedUserKey(null)}>
+        <DialogContent className="bg-slate-800 border-slate-700 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-green-400">¡Usuario invitado!</DialogTitle>
+            <DialogDescription>
+              Comparte esta información con el nuevo miembro
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="bg-slate-700/50 p-4 rounded space-y-2">
+              <p className="text-sm"><span className="text-slate-400">Nombre:</span> <span className="font-medium">{invitedUserKey?.name}</span></p>
+              <p className="text-sm"><span className="text-slate-400">Email:</span> <span className="font-medium">{invitedUserKey?.email}</span></p>
+              <div className="pt-2">
+                <p className="text-sm text-slate-400 mb-1">Clave de acceso:</p>
+                <div className="flex items-center gap-2">
+                  <code className="text-lg font-bold bg-slate-600 px-3 py-1 rounded flex-1 select-all">{invitedUserKey?.accessKey}</code>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => copyToClipboard(invitedUserKey?.accessKey || '')}
+                  >
+                    {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
             
-            <div className="flex gap-2">
-              <Button onClick={() => updateProfile(false)} disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Guardar
-              </Button>
-              <Button variant="outline" onClick={() => updateProfile(true)} disabled={loading}>
-                Generar Nueva Clave
+            <div className="space-y-2">
+              <p className="text-sm text-slate-400">Mensaje para compartir:</p>
+              <Textarea
+                value={getInvitationMessage()}
+                readOnly
+                className="bg-slate-700 border-slate-600 text-sm h-32"
+              />
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => copyToClipboard(getInvitationMessage())}
+              >
+                {copied ? <Check className="h-4 w-4 mr-2 text-green-400" /> : <Copy className="h-4 w-4 mr-2" />}
+                Copiar mensaje completo
               </Button>
             </div>
             
-            <div className="pt-4 border-t border-slate-700">
-              <Button variant="destructive" size="sm" onClick={deleteAccount}>
-                Darse de baja
-              </Button>
-            </div>
+            <Button onClick={() => setInvitedUserKey(null)} className="w-full">
+              Cerrar
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
