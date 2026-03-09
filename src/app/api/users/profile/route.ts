@@ -16,19 +16,20 @@ export async function PUT(request: NextRequest) {
 
     const { name, email, newAccessKey } = await request.json();
 
-    const updateData: { name?: string; email?: string; accessKey?: string } = {};
+    const updateData: { name?: string; email?: string; accessKey?: string; keyIsPrivate?: boolean } = {};
     
     if (name) updateData.name = name;
     if (email) updateData.email = email;
     if (newAccessKey) {
-      // Generar nueva clave aleatoria
+      // Generar nueva clave aleatoria y marcarla como privada
       updateData.accessKey = crypto.randomBytes(8).toString('hex').toUpperCase();
+      updateData.keyIsPrivate = true; // El admin no podrá ver esta clave
     }
 
     const user = await db.user.update({
       where: { id: userId },
       data: updateData,
-      select: { id: true, name: true, email: true, accessKey: true, role: true }
+      select: { id: true, name: true, email: true, accessKey: true, role: true, keyIsPrivate: true }
     });
 
     return NextResponse.json({ success: true, user });
