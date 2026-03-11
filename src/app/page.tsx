@@ -175,7 +175,7 @@ export default function ForumPage() {
   
   const chatRef = useRef<HTMLDivElement>(null);
 
-  // Funciones de datos
+  // Funciones de datos (definidas primero)
   const loadTopics = async () => {
     try {
       const res = await fetch('/api/topics');
@@ -206,6 +206,7 @@ export default function ForumPage() {
     }
   };
 
+  // Funciones de autenticación (definidas antes de usarlas en useEffect)
   const checkSession = async () => {
     try {
       const res = await fetch('/api/auth/session');
@@ -323,6 +324,7 @@ export default function ForumPage() {
     setView('forum');
   };
 
+  // Funciones de datos adicionales
   const loadPosts = async (subtopicId: string) => {
     try {
       const res = await fetch(`/api/posts?subtopicId=${subtopicId}`);
@@ -364,6 +366,7 @@ export default function ForumPage() {
     }
   };
 
+  // Acciones de navegación
   const goToTopic = (topic: Topic) => {
     setSelectedTopic(topic);
     loadChat(topic.id);
@@ -398,6 +401,7 @@ export default function ForumPage() {
     setView('messages');
   };
 
+  // Acciones de contenido
   const createTopic = async () => {
     if (!newTopicName.trim()) return;
     setLoading(true);
@@ -463,6 +467,7 @@ export default function ForumPage() {
         setNewSubtopicName('');
         setShowNewSubtopic(false);
         loadTopics();
+        // Actualizar selectedTopic
         const updated = topics.find(t => t.id === selectedTopic.id);
         if (updated) setSelectedTopic(updated);
       }
@@ -683,6 +688,7 @@ export default function ForumPage() {
     }
   };
 
+  // Gestión de usuarios (admin)
   const toggleUserActive = async (userId: string) => {
     try {
       await fetch('/api/admin/users', {
@@ -760,6 +766,7 @@ export default function ForumPage() {
     }
   };
 
+  // Búsqueda
   const handleSearch = async () => {
     if (!searchQuery.trim() || searchQuery.length < 2) {
       setSearchResults(null);
@@ -775,6 +782,7 @@ export default function ForumPage() {
     }
   };
 
+  // Formatear fecha
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('es-ES', {
       day: '2-digit',
@@ -785,12 +793,14 @@ export default function ForumPage() {
     });
   };
 
+  // Verificar si usuario está en línea
   const isUserOnline = (lastActiveAt?: string) => {
     if (!lastActiveAt) return false;
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     return new Date(lastActiveAt) > fiveMinutesAgo;
   };
   
+  // Generar mensaje para compartir
   const getInvitationMessage = () => {
     if (!invitedUserKey) return '';
     return `¡Has sido invitado al foro "Lo Mejor de España"!
@@ -801,7 +811,13 @@ Entra en: https://lomejordeespaña.es
 
 ¡Te esperamos!`;
   };
-    // RENDER PRINCIPAL
+
+  // Función para abrir nuevo mensaje y cargar miembros
+  const handleOpenNewMessage = () => {
+    loadAllMembers();
+    setShowNewMessage(true);
+  };
+  // RENDER PRINCIPAL
   if (checkingSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -810,17 +826,19 @@ Entra en: https://lomejordeespaña.es
     );
   }
 
-  // Vista de Login
+  // Vista de Login - Solo globo terráqueo y título
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
         <Card className="w-full max-w-md shadow-2xl border-slate-700 bg-slate-800/50 backdrop-blur">
           <CardHeader className="text-center space-y-4">
+            {/* Solo el globo terráqueo SVG */}
             <div className="mx-auto w-20 h-20 bg-gradient-to-br from-red-600 to-yellow-500 rounded-full flex items-center justify-center shadow-lg">
               <svg viewBox="0 0 24 24" className="w-12 h-12 text-white" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
               </svg>
             </div>
+            {/* Solo el título */}
             <CardTitle className="text-3xl font-bold bg-gradient-to-r from-red-500 via-yellow-500 to-red-500 bg-clip-text text-transparent">
               Lo Mejor De España
             </CardTitle>
@@ -985,6 +1003,7 @@ Entra en: https://lomejordeespaña.es
             </h2>
           </div>
           <div className="flex items-center gap-4">
+            {/* Barra de búsqueda */}
             <div className="relative">
               <div className="flex items-center gap-2">
                 <Input
@@ -1000,6 +1019,7 @@ Entra en: https://lomejordeespaña.es
                 </Button>
               </div>
               
+              {/* Resultados de búsqueda */}
               {showSearch && searchResults && (
                 <div className="absolute right-0 top-12 w-96 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
                   <div className="p-2 border-b border-slate-700 flex justify-between items-center">
@@ -1093,7 +1113,7 @@ Entra en: https://lomejordeespaña.es
 
         {/* Área de contenido */}
         <main className="flex-1 overflow-auto p-4">
-          {/* Vista: Foro principal */}
+          {/* Vista: Foro principal (lista de temas) */}
           {view === 'forum' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -1138,161 +1158,78 @@ Entra en: https://lomejordeespaña.es
               <div className="grid gap-4">
                 {topics.length === 0 ? (
                   <Card className="bg-slate-800/50 border-slate-700">
-                    <CardContent className="p-6 text-center text-slate-400">
-                      No hay temas creados aún.
+                    <CardContent className="p-8 text-center text-slate-400">
+                      No hay temas creados. {user.role === 'admin' && 'Crea el primer tema para comenzar.'}
                     </CardContent>
                   </Card>
                 ) : (
                   topics.map((topic) => (
-                    <Card 
-                      key={topic.id} 
-                      className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition-colors"
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div 
-                            className="flex-1 cursor-pointer"
-                            onClick={() => goToTopic(topic)}
-                          >
-                            <h4 className="font-semibold text-lg">{topic.name}</h4>
+                    <Card key={topic.id} className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition-colors">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between">
+                          <div className="cursor-pointer flex-1" onClick={() => goToTopic(topic)}>
+                            <CardTitle className="text-lg hover:text-yellow-500 transition-colors">
+                              {topic.name}
+                            </CardTitle>
                             {topic.description && (
-                              <p className="text-slate-400 text-sm mt-1">{topic.description}</p>
+                              <CardDescription className="text-slate-400 mt-1">
+                                {topic.description}
+                              </CardDescription>
                             )}
-                            <div className="flex items-center gap-4 mt-2 text-sm text-slate-500">
-                              <span>{topic._count.subtopics} subtemas</span>
-                              <span>{topic._count.chatMessages} mensajes en chat</span>
+                          </div>
+                          {user.role === 'admin' && (
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => {
+                                  setEditingTopic(topic);
+                                  setEditTopicName(topic.name);
+                                  setEditTopicDesc(topic.description || '');
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-red-400 hover:text-red-300"
+                                onClick={() => deleteTopic(topic.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {user.role === 'admin' && (
-                              <>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingTopic(topic);
-                                    setEditTopicName(topic.name);
-                                    setEditTopicDesc(topic.description || '');
-                                  }}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    deleteTopic(topic.id);
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-400" />
-                                </Button>
-                              </>
-                            )}
-                            <Button variant="ghost" size="sm" onClick={() => goToTopic(topic)}>
-                              <ChevronRight className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          )}
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-                    {/* Vista: Tema (subtemas y chat) */}
-          {view === 'topic' && selectedTopic && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Subtemas</h3>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={goToChat}>
-                    <MessageSquare className="h-4 w-4 mr-1" />Chat
-                  </Button>
-                  <Dialog open={showNewSubtopic} onOpenChange={setShowNewSubtopic}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" className="gap-1">
-                        <Plus className="h-4 w-4" />Nuevo Subtema
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-slate-800 border-slate-700">
-                      <DialogHeader>
-                        <DialogTitle>Crear Nuevo Subtema</DialogTitle>
-                        <DialogDescription>
-                          Los subtemas contienen las publicaciones de discusión.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4 pt-4">
-                        <Input
-                          placeholder="Nombre del subtema"
-                          value={newSubtopicName}
-                          onChange={(e) => setNewSubtopicName(e.target.value)}
-                          className="bg-slate-700 border-slate-600"
-                        />
-                        <Button onClick={createSubtopic} disabled={loading || !newSubtopicName.trim()}>
-                          {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                          Crear Subtema
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-              
-              <div className="grid gap-3">
-                {selectedTopic.subtopics.length === 0 ? (
-                  <Card className="bg-slate-800/50 border-slate-700">
-                    <CardContent className="p-6 text-center text-slate-400">
-                      No hay subtemas en este tema.
-                    </CardContent>
-                  </Card>
-                ) : (
-                  selectedTopic.subtopics.map((st) => (
-                    <Card 
-                      key={st.id} 
-                      className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition-colors cursor-pointer"
-                      onClick={() => goToSubtopic(st)}
-                    >
-                      <CardContent className="p-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-medium">{st.name}</h4>
-                            <p className="text-sm text-slate-500">
-                              Por {st.creator.name} • {st._count.posts} publicaciones
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {(user.role === 'admin' || user.id === st.creator.id) && (
-                              <>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingSubtopic(st);
-                                    setEditSubtopicName(st.name);
-                                  }}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  className="text-red-400 hover:text-red-300"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    deleteSubtopic(st.id);
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-                            <ChevronRight className="h-4 w-4 text-slate-400" />
-                          </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center gap-4 text-sm text-slate-400">
+                          <span>{topic._count.subtopics} subtemas</span>
+                          <span>{topic._count.chatMessages} mensajes en chat</span>
                         </div>
+                        {topic.subtopics.length > 0 && (
+                          <div className="mt-3 space-y-1">
+                            {topic.subtopics.slice(0, 3).map((st) => (
+                              <div 
+                                key={st.id}
+                                className="flex items-center gap-2 text-sm text-slate-300 hover:text-yellow-500 cursor-pointer"
+                                onClick={() => { setSelectedTopic(topic); goToSubtopic(st); }}
+                              >
+                                <ChevronRight className="h-3 w-3" />
+                                {st.name}
+                                <span className="text-slate-500">({st._count.posts})</span>
+                              </div>
+                            ))}
+                            {topic.subtopics.length > 3 && (
+                              <div 
+                                className="text-sm text-slate-400 hover:text-yellow-500 cursor-pointer"
+                                onClick={() => goToTopic(topic)}
+                              >
+                                Ver más...
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))
@@ -1301,46 +1238,98 @@ Entra en: https://lomejordeespaña.es
             </div>
           )}
 
-          {/* Vista: Chat del tema */}
-          {view === 'chat' && selectedTopic && (
-            <div className="flex flex-col h-[calc(100vh-12rem)]">
-              <div 
-                ref={chatRef}
-                className="flex-1 overflow-y-auto space-y-3 p-4 bg-slate-800/30 rounded-lg"
-              >
-                {chatMessages.length === 0 ? (
-                  <p className="text-center text-slate-400 py-8">No hay mensajes en el chat.</p>
-                ) : (
-                  chatMessages.map((msg) => (
-                    <div key={msg.id} className="flex gap-3">
-                      <div className="flex-shrink-0">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-yellow-500 flex items-center justify-center font-bold">
-                          {msg.user.name.charAt(0).toUpperCase()}
-                        </div>
-                      </div>
-                      <div className="flex-1 bg-slate-700/50 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium">{msg.user.name}</span>
-                          <span className="text-xs text-slate-500">{formatDate(msg.createdAt)}</span>
-                        </div>
-                        <p className="text-slate-200">{msg.message}</p>
-                      </div>
+          {/* Vista: Tema (lista de subtemas y acceso al chat) */}
+          {view === 'topic' && selectedTopic && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <Button onClick={goToChat} className="gap-2">
+                  <MessageSquare className="h-4 w-4" />Chat de Brainstorming
+                </Button>
+                <Dialog open={showNewSubtopic} onOpenChange={setShowNewSubtopic}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1">
+                      <Plus className="h-4 w-4" />Nuevo Subtema
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-slate-800 border-slate-700">
+                    <DialogHeader>
+                      <DialogTitle>Crear Subtema</DialogTitle>
+                      <DialogDescription>
+                        Los subtemas son subdivisiones dentro de un tema para organizar las discusiones.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                      <Input
+                        placeholder="Nombre del subtema"
+                        value={newSubtopicName}
+                        onChange={(e) => setNewSubtopicName(e.target.value)}
+                        className="bg-slate-700 border-slate-600"
+                      />
+                      <Button onClick={createSubtopic} disabled={loading || !newSubtopicName.trim()}>
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        Crear Subtema
+                      </Button>
                     </div>
-                  ))
-                )}
+                  </DialogContent>
+                </Dialog>
               </div>
               
-              <div className="mt-4 flex gap-2">
-                <Input
-                  placeholder="Escribe un mensaje..."
-                  value={newChatMessage}
-                  onChange={(e) => setNewChatMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
-                  className="bg-slate-700 border-slate-600"
-                />
-                <Button onClick={sendChatMessage}>
-                  <Send className="h-4 w-4" />
-                </Button>
+              <div className="grid gap-3">
+                {selectedTopic.subtopics.length === 0 ? (
+                  <Card className="bg-slate-800/50 border-slate-700">
+                    <CardContent className="p-6 text-center text-slate-400">
+                      No hay subtemas. Crea uno para comenzar la discusión.
+                    </CardContent>
+                  </Card>
+                ) : (
+                  selectedTopic.subtopics.map((st) => (
+                    <Card 
+                      key={st.id}
+                      className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition-colors"
+                    >
+                      <CardContent className="p-4 flex items-center justify-between">
+                        <div 
+                          className="cursor-pointer flex-1"
+                          onClick={() => goToSubtopic(st)}
+                        >
+                          <h4 className="font-medium hover:text-yellow-500">{st.name}</h4>
+                          <p className="text-sm text-slate-400">
+                            Por {st.creator.name} • {st._count.posts} publicaciones
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <ChevronRight className="h-5 w-5 text-slate-400 cursor-pointer" onClick={() => goToSubtopic(st)} />
+                          {(user.role === 'admin' || st.creator.id === user.id) && (
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingSubtopic(st);
+                                  setEditSubtopicName(st.name);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="text-red-400 hover:text-red-300"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteSubtopic(st.id);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -1366,7 +1355,7 @@ Entra en: https://lomejordeespaña.es
               </Card>
               
               <div className="space-y-3">
-                {posts.filter(p => !p.parentId).length === 0 ? (
+                {posts.length === 0 ? (
                   <Card className="bg-slate-800/50 border-slate-700">
                     <CardContent className="p-6 text-center text-slate-400">
                       Sé el primero en publicar.
@@ -1401,104 +1390,78 @@ Entra en: https://lomejordeespaña.es
                                 </div>
                               </div>
                             ) : (
-                              <p className="whitespace-pre-wrap text-slate-200">{post.content}</p>
-                            )}
-                            
-                            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-700">
-                              <div className="flex items-center gap-2">
-                                <Button 
-                                  size="sm" 
-                                  variant={post.userLike === 'like' ? 'default' : 'ghost'}
-                                  onClick={() => handleLike(post.id, 'like')}
-                                >
-                                  <ThumbsUp className="h-4 w-4" />
-                                </Button>
-                                <span className="text-sm">{post.likesCount}</span>
-                                <Button 
-                                  size="sm" 
-                                  variant={post.userLike === 'dislike' ? 'default' : 'ghost'}
-                                  onClick={() => handleLike(post.id, 'dislike')}
-                                >
-                                  <ThumbsDown className="h-4 w-4" />
-                                </Button>
-                                <span className="text-sm">{post.dislikesCount}</span>
-                              </div>
-                              
-                              <Button 
-                                size="sm" 
-                                variant="ghost"
-                                onClick={() => {
-                                  setReplyingTo(post);
-                                  setReplyContent('');
-                                }}
-                              >
-                                <Reply className="h-4 w-4 mr-1" />Responder
-                              </Button>
-                              
-                              {(user.role === 'admin' || user.id === post.author.id) && !editingPost && (
-                                <>
-                                  <Button 
-                                    size="sm" 
-                                    variant="ghost"
-                                    onClick={() => {
-                                      setEditingPost(post.id);
-                                      setEditContent(post.content);
-                                    }}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="ghost"
-                                    className="text-red-400 hover:text-red-300"
-                                    onClick={() => deletePost(post.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                            
-                            {/* Formulario de respuesta */}
-                            {replyingTo?.id === post.id && (
-                              <div className="mt-4 pt-4 border-t border-slate-700">
-                                <p className="text-sm text-slate-400 mb-2">Respondiendo a {post.author.name}</p>
-                                <Textarea
-                                  value={replyContent}
-                                  onChange={(e) => setReplyContent(e.target.value)}
-                                  placeholder="Escribe tu respuesta..."
-                                  className="bg-slate-700 border-slate-600 min-h-[80px]"
-                                />
-                                <div className="flex gap-2 mt-2">
-                                  <Button size="sm" onClick={createReply} disabled={loading || !replyContent.trim()}>
-                                    {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                                    Responder
-                                  </Button>
-                                  <Button size="sm" variant="ghost" onClick={() => setReplyingTo(null)}>
-                                    Cancelar
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-                            
-                            {/* Respuestas */}
-                            {posts.filter(p => p.parentId === post.id).length > 0 && (
-                              <div className="mt-4 pt-4 border-t border-slate-700 space-y-3">
-                                {posts.filter(p => p.parentId === post.id).map((reply) => (
-                                  <div key={reply.id} className="bg-slate-700/30 rounded p-3 ml-4">
-                                    <div className="flex items-center gap-2 text-sm text-slate-400 mb-1">
-                                      <User className="h-3 w-3" />
-                                      <span className="font-medium text-slate-300">{reply.author.name}</span>
-                                      <span>•</span>
-                                      <span>{formatDate(reply.createdAt)}</span>
-                                    </div>
-                                    <p className="text-slate-200">{reply.content}</p>
-                                  </div>
-                                ))}
-                              </div>
+                              <p className="text-slate-200 whitespace-pre-wrap">{post.content}</p>
                             )}
                           </div>
+                          
+                          {post.author.id === user.id && editingPost !== post.id && (
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => { setEditingPost(post.id); setEditContent(post.content); }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                className="text-red-400 hover:text-red-300"
+                                onClick={() => deletePost(post.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
+                        
+                        {/* Likes/Dislikes y Responder */}
+                        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-700">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className={`gap-1 ${post.userLike === 'like' ? 'text-green-500' : 'text-slate-400'}`}
+                            onClick={() => handleLike(post.id, 'like')}
+                          >
+                            <ThumbsUp className="h-4 w-4" />
+                            {post.likesCount}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className={`gap-1 ${post.userLike === 'dislike' ? 'text-red-500' : 'text-slate-400'}`}
+                            onClick={() => handleLike(post.id, 'dislike')}
+                          >
+                            <ThumbsDown className="h-4 w-4" />
+                            {post.dislikesCount}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="gap-1 text-slate-400"
+                            onClick={() => setReplyingTo(post)}
+                          >
+                            <Reply className="h-4 w-4" />
+                            Responder
+                          </Button>
+                        </div>
+                        
+                        {/* Respuestas */}
+                        {posts.filter(p => p.parentId === post.id).length > 0 && (
+                          <div className="mt-3 pl-4 border-l-2 border-slate-700 space-y-2">
+                            {posts.filter(p => p.parentId === post.id).map((reply) => (
+                              <div key={reply.id} className="bg-slate-700/30 p-3 rounded">
+                                <div className="flex items-center gap-2 text-sm text-slate-400 mb-1">
+                                  <User className="h-3 w-3" />
+                                  <span className="font-medium text-slate-300">{reply.author.name}</span>
+                                  <span>•</span>
+                                  <span>{formatDate(reply.createdAt)}</span>
+                                </div>
+                                <p className="text-slate-200 text-sm whitespace-pre-wrap">{reply.content}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))
@@ -1507,6 +1470,53 @@ Entra en: https://lomejordeespaña.es
             </div>
           )}
 
+          {/* Vista: Chat de Brainstorming */}
+          {view === 'chat' && selectedTopic && (
+            <div className="h-full flex flex-col">
+              <Card className="flex-1 bg-slate-800/50 border-slate-700 flex flex-col">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">Chat de Brainstorming</CardTitle>
+                  <CardDescription>
+                    Ideas no maduradas, sugerencias y comentarios sobre {selectedTopic.name}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col overflow-hidden">
+                  <div ref={chatRef} className="flex-1 overflow-auto space-y-3 mb-4 pr-2">
+                    {chatMessages.length === 0 ? (
+                      <p className="text-slate-400 text-center">No hay mensajes. ¡Inicia la conversación!</p>
+                    ) : (
+                      chatMessages.map((msg) => (
+                        <div key={msg.id} className={`flex flex-col ${msg.user.id === user.id ? 'items-end' : 'items-start'}`}>
+                          <div className={`max-w-[70%] rounded-lg px-3 py-2 ${
+                            msg.user.id === user.id 
+                              ? 'bg-gradient-to-r from-red-600 to-yellow-600' 
+                              : 'bg-slate-700'
+                          }`}>
+                            <p className="text-sm font-medium mb-1">{msg.user.name}</p>
+                            <p className="text-sm">{msg.message}</p>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1">{formatDate(msg.createdAt)}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Escribe un mensaje..."
+                      value={newChatMessage}
+                      onChange={(e) => setNewChatMessage(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
+                      className="bg-slate-700 border-slate-600"
+                    />
+                    <Button onClick={sendChatMessage}>
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
           {/* Vista: Administración */}
           {view === 'admin' && user.role === 'admin' && (
             <div className="space-y-4">
@@ -1548,6 +1558,48 @@ Entra en: https://lomejordeespaña.es
                 </Dialog>
               </div>
               
+              {/* Modal con clave de invitado */}
+              {invitedUserKey && (
+                <Card className="bg-green-900/30 border-green-700">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-green-400 font-medium">¡Invitación creada!</p>
+                        <p className="text-sm text-slate-300 mt-1">
+                          <strong>{invitedUserKey.name}</strong> ({invitedUserKey.email})
+                        </p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <code className="bg-slate-700 px-3 py-1 rounded text-lg font-bold">{invitedUserKey.accessKey}</code>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => copyToClipboard(invitedUserKey.accessKey)}
+                          >
+                            {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-2">Comparte esta clave con el nuevo miembro.</p>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="mt-3"
+                          onClick={() => {
+                            const message = getInvitationMessage();
+                            copyToClipboard(message);
+                          }}
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copiar mensaje completo
+                        </Button>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setInvitedUserKey(null)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
               <Card className="bg-slate-800/50 border-slate-700">
                 <CardContent className="p-0 overflow-x-auto">
                   <table className="w-full">
@@ -1574,9 +1626,9 @@ Entra en: https://lomejordeespaña.es
                           <td className="p-3 text-slate-400">{member.email}</td>
                           <td className="p-3">
                             {member.keyIsPrivate ? (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1" title="Clave privada">
                                 <code className="text-xs bg-slate-700 px-2 py-1 rounded text-slate-500">••••••••••••••••</code>
-                                <Lock className="h-3 w-3 text-slate-500" title="Clave privada" />
+                                <Lock className="h-3 w-3 text-slate-500" />
                               </div>
                             ) : (
                               <code className="text-xs bg-slate-700 px-2 py-1 rounded">{member.accessKey}</code>
@@ -1608,36 +1660,38 @@ Entra en: https://lomejordeespaña.es
                             </div>
                           </td>
                           <td className="p-3">
-                            <div className="flex items-center gap-1">
-                              {member.id !== user.id && (
-                                <>
-                                  <Button 
-                                    size="sm" 
-                                    variant="ghost"
-                                    onClick={() => toggleUserActive(member.id)}
-                                    title={member.isActive ? 'Desactivar' : 'Activar'}
-                                  >
-                                    {member.isActive ? <Circle className="h-4 w-4 text-green-500" /> : <CheckCircle className="h-4 w-4 text-slate-500" />}
-                                  </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="ghost"
-                                    onClick={() => toggleUserRole(member.id)}
-                                    title="Cambiar rol"
-                                  >
-                                    {member.role === 'admin' ? <Crown className="h-4 w-4 text-yellow-500" /> : <User className="h-4 w-4" />}
-                                  </Button>
-                                  <Button 
-                                    size="sm" 
-                                    variant="ghost"
-                                    className="text-red-400 hover:text-red-300"
-                                    onClick={() => deleteUser(member.id)}
-                                    title="Eliminar"
-                                  >
-                                    <UserX className="h-4 w-4" />
-                                  </Button>
-                                </>
-                              )}
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                title={member.isActive ? 'Desactivar' : 'Activar'}
+                                onClick={() => toggleUserActive(member.id)}
+                              >
+                                {member.isActive ? (
+                                  <XCircle className="h-4 w-4 text-red-400" />
+                                ) : (
+                                  <CheckCircle className="h-4 w-4 text-green-400" />
+                                )}
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                title="Cambiar rol"
+                                onClick={() => toggleUserRole(member.id)}
+                                disabled={member.id === user.id}
+                              >
+                                <Crown className={`h-4 w-4 ${member.role === 'admin' ? 'text-yellow-500' : 'text-slate-400'}`} />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                title="Eliminar"
+                                className="text-red-400 hover:text-red-300"
+                                onClick={() => deleteUser(member.id)}
+                                disabled={member.id === user.id}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -1655,13 +1709,13 @@ Entra en: https://lomejordeespaña.es
               <div className="flex items-center justify-between">
                 <Tabs value={messageTab} onValueChange={(v) => setMessageTab(v as 'received' | 'sent')}>
                   <TabsList className="bg-slate-800">
-                    <TabsTrigger value="received">Recibidos</TabsTrigger>
-                    <TabsTrigger value="sent">Enviados</TabsTrigger>
+                    <TabsTrigger value="received">Recibidos ({messages.length})</TabsTrigger>
+                    <TabsTrigger value="sent">Enviados ({sentMessages.length})</TabsTrigger>
                   </TabsList>
                 </Tabs>
                 <Dialog open={showNewMessage} onOpenChange={setShowNewMessage}>
                   <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1">
+                    <Button size="sm" className="gap-1" onClick={handleOpenNewMessage}>
                       <Plus className="h-4 w-4" />Nuevo Mensaje
                     </Button>
                   </DialogTrigger>
@@ -1670,19 +1724,16 @@ Entra en: https://lomejordeespaña.es
                       <DialogTitle>Nuevo Mensaje</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 pt-4">
-                      <div>
-                        <label className="text-sm text-slate-400">Para:</label>
-                        <select 
-                          value={newMessageRecipient}
-                          onChange={(e) => setNewMessageRecipient(e.target.value)}
-                          className="w-full mt-1 bg-slate-700 border border-slate-600 rounded p-2 text-white"
-                        >
-                          <option value="">Seleccionar destinatario...</option>
-                          {allMembers.filter(m => m.id !== user.id).map((m) => (
-                            <option key={m.id} value={m.id}>{m.name}</option>
-                          ))}
-                        </select>
-                      </div>
+                      <select
+                        value={newMessageRecipient}
+                        onChange={(e) => setNewMessageRecipient(e.target.value)}
+                        className="w-full p-2 rounded bg-slate-700 border border-slate-600 text-white"
+                      >
+                        <option value="">Seleccionar destinatario...</option>
+                        {allMembers.filter(m => m.id !== user.id).map((m) => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                      </select>
                       <Input
                         placeholder="Asunto"
                         value={newMessageSubject}
@@ -1696,6 +1747,7 @@ Entra en: https://lomejordeespaña.es
                         className="bg-slate-700 border-slate-600 min-h-[100px]"
                       />
                       <Button onClick={sendMessage} disabled={!newMessageRecipient || !newMessageContent.trim()}>
+                        <Send className="h-4 w-4 mr-2" />
                         Enviar
                       </Button>
                     </div>
@@ -1795,6 +1847,8 @@ Entra en: https://lomejordeespaña.es
         </main>
       </div>
 
+      {/* Diálogos flotantes */}
+      
       {/* Dialog: Editar Tema */}
       <Dialog open={!!editingTopic} onOpenChange={() => setEditingTopic(null)}>
         <DialogContent className="bg-slate-800 border-slate-700">
@@ -1809,7 +1863,7 @@ Entra en: https://lomejordeespaña.es
               className="bg-slate-700 border-slate-600"
             />
             <Textarea
-              placeholder="Descripción (opcional)"
+              placeholder="Descripción"
               value={editTopicDesc}
               onChange={(e) => setEditTopicDesc(e.target.value)}
               className="bg-slate-700 border-slate-600"
@@ -1843,6 +1897,33 @@ Entra en: https://lomejordeespaña.es
         </DialogContent>
       </Dialog>
 
+      {/* Dialog: Responder a post */}
+      <Dialog open={!!replyingTo} onOpenChange={() => { setReplyingTo(null); setReplyContent(''); }}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle>Responder a {replyingTo?.author.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            {replyingTo && (
+              <div className="bg-slate-700/50 p-3 rounded text-sm">
+                <p className="text-slate-400 mb-1">Original:</p>
+                <p className="text-slate-200">{replyingTo.content.substring(0, 200)}{replyingTo.content.length > 200 ? '...' : ''}</p>
+              </div>
+            )}
+            <Textarea
+              placeholder="Escribe tu respuesta..."
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+              className="bg-slate-700 border-slate-600 min-h-[100px]"
+            />
+            <Button onClick={createReply} disabled={loading || !replyContent.trim()}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Responder
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog: Perfil */}
       <Dialog open={showProfile} onOpenChange={setShowProfile}>
         <DialogContent className="bg-slate-800 border-slate-700">
@@ -1855,18 +1936,9 @@ Entra en: https://lomejordeespaña.es
                 <p className="text-green-400">¡Nueva clave generada!</p>
                 <div className="bg-slate-700 p-4 rounded">
                   <p className="text-sm text-slate-400 mb-2">Su nueva clave de acceso es:</p>
-                  <div className="flex items-center justify-center gap-2">
-                    <code className="text-xl font-bold">{newKeyGenerated}</code>
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      onClick={() => copyToClipboard(newKeyGenerated)}
-                    >
-                      {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                  </div>
+                  <code className="text-xl font-bold">{newKeyGenerated}</code>
                 </div>
-                <p className="text-yellow-400 text-sm">¡Guarde esta clave en un lugar seguro! El administrador no podrá verla.</p>
+                <p className="text-yellow-400 text-sm">¡Guarde esta clave en un lugar seguro!</p>
                 <Button onClick={() => { setNewKeyGenerated(''); setShowProfile(false); }}>
                   Entendido
                 </Button>
@@ -1896,73 +1968,20 @@ Entra en: https://lomejordeespaña.es
                   </Button>
                   <Button variant="outline" onClick={() => updateProfile(true)} disabled={loading}>
                     <Key className="h-4 w-4 mr-2" />
-                    Nueva Clave
+                    Generar Nueva Clave
                   </Button>
                 </div>
-                {user.role !== 'admin' && (
+                <div className="pt-4 border-t border-slate-700">
                   <Button 
-                    variant="destructive" 
-                    className="w-full mt-4"
+                    variant="ghost" 
+                    className="text-red-400 hover:text-red-300"
                     onClick={deleteAccount}
                   >
-                    <UserX className="h-4 w-4 mr-2" />
-                    Darse de Baja
-                  </Button>
-                )}
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog: Clave de invitación */}
-      <Dialog open={!!invitedUserKey} onOpenChange={() => setInvitedUserKey(null)}>
-        <DialogContent className="bg-slate-800 border-slate-700 max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-green-400">¡Usuario invitado!</DialogTitle>
-            <DialogDescription>
-              Comparte esta información con el nuevo miembro
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="bg-slate-700/50 p-4 rounded space-y-2">
-              <p className="text-sm"><span className="text-slate-400">Nombre:</span> <span className="font-medium">{invitedUserKey?.name}</span></p>
-              <p className="text-sm"><span className="text-slate-400">Email:</span> <span className="font-medium">{invitedUserKey?.email}</span></p>
-              <div className="pt-2">
-                <p className="text-sm text-slate-400 mb-1">Clave de acceso:</p>
-                <div className="flex items-center gap-2">
-                  <code className="text-lg font-bold bg-slate-600 px-3 py-1 rounded flex-1 select-all">{invitedUserKey?.accessKey}</code>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => copyToClipboard(invitedUserKey?.accessKey || '')}
-                  >
-                    {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                    Darse de baja
                   </Button>
                 </div>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <p className="text-sm text-slate-400">Mensaje para compartir:</p>
-              <Textarea
-                value={getInvitationMessage()}
-                readOnly
-                className="bg-slate-700 border-slate-600 text-sm h-32"
-              />
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => copyToClipboard(getInvitationMessage())}
-              >
-                {copied ? <Check className="h-4 w-4 mr-2 text-green-400" /> : <Copy className="h-4 w-4 mr-2" />}
-                Copiar mensaje completo
-              </Button>
-            </div>
-            
-            <Button onClick={() => setInvitedUserKey(null)} className="w-full">
-              Cerrar
-            </Button>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
