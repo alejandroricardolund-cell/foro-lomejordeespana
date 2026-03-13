@@ -16,16 +16,15 @@ model User {
   id            String   @id @default(cuid())
   email         String   @unique
   name          String
-  accessKey     String   @unique // Clave personal única para entrar
-  keyIsPrivate  Boolean  @default(false) // Si es true, el admin no puede verla
-  role          String   @default("member") // "admin" o "member"
+  accessKey     String   @unique
+  keyIsPrivate  Boolean  @default(false)
+  role          String   @default("member")
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  invitedBy     String?  // ID del admin que invitó
-  lastActiveAt  DateTime @default(now()) // Última actividad del usuario
+  invitedBy     String?
+  lastActiveAt  DateTime @default(now())
 
-  // Relaciones
   posts            Post[]
   chatMessages     ChatMessage[]
   likes            Like[]
@@ -48,7 +47,6 @@ model Topic {
   updatedAt   DateTime @updatedAt
   createdBy   String
 
-  // Relaciones
   subtopics    Subtopic[]
   chatMessages ChatMessage[]
   creator      User      @relation(fields: [createdBy], references: [id])
@@ -62,7 +60,6 @@ model Subtopic {
   createdAt DateTime @default(now())
   createdBy String
 
-  // Relaciones
   topic    Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
   posts    Post[]
   creator  User     @relation(fields: [createdBy], references: [id])
@@ -74,16 +71,16 @@ model Post {
   subtopicId String
   userId     String
   content    String
-  parentId   String?  // Para respuestas/hilos (null = post principal)
+  parentId   String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  // Relaciones
-  subtopic  Subtopic  @relation(fields: [subtopicId], references: [id], onDelete: Cascade)
-  author    User      @relation(fields: [userId], references: [id])
-  likes     Like[]
-  parent    Post?     @relation("PostReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies   Post[]    @relation("PostReplies")
+  subtopic     Subtopic  @relation(fields: [subtopicId], references: [id], onDelete: Cascade)
+  author       User      @relation(fields: [userId], references: [id])
+  likes        Like[]
+  parent       Post?     @relation("PostReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies      Post[]    @relation("PostReplies")
+  attachments  FileAttachment[]
 }
 
 // Mensajes del chat de brainstorming por tema
@@ -94,9 +91,9 @@ model ChatMessage {
   message   String
   createdAt DateTime @default(now())
 
-  // Relaciones
-  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  user  User  @relation(fields: [userId], references: [id])
+  topic       Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  user        User  @relation(fields: [userId], references: [id])
+  attachments FileAttachment[]
 }
 
 // Sistema de likes/dislikes
@@ -104,13 +101,12 @@ model Like {
   id     String @id @default(cuid())
   postId String
   userId String
-  type   String // "like" o "dislike"
+  type   String
 
-  // Relaciones
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id])
 
-  @@unique([postId, userId]) // Un usuario solo puede dar like/dislike una vez por post
+  @@unique([postId, userId])
 }
 
 // Correo interno entre usuarios
@@ -123,9 +119,9 @@ model Message {
   isRead      Boolean  @default(false)
   createdAt   DateTime @default(now())
 
-  // Relaciones
-  sender   User  @relation("SentMessages", fields: [senderId], references: [id])
-  receiver User  @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  sender      User  @relation("SentMessages", fields: [senderId], references: [id])
+  receiver    User  @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  attachments FileAttachment[]
 }
 
 // Control de intentos de acceso
@@ -137,6 +133,23 @@ model AccessAttempt {
   ipAddress String?
   createdAt DateTime @default(now())
 
-  // Relaciones
   user User? @relation(fields: [userId], references: [id])
+}
+
+// Archivos adjuntos
+model FileAttachment {
+  id            String   @id @default(cuid())
+  url           String
+  name          String
+  size          Int
+  type          String
+  key           String
+  postId        String?
+  messageId     String?
+  chatMessageId String?
+  createdAt     DateTime @default(now())
+
+  post        Post?        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  message     Message?     @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  chatMessage ChatMessage? @relation(fields: [chatMessageId], references: [id], onDelete: Cascade)
 }
