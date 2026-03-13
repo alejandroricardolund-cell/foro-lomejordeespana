@@ -10,6 +10,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
+    const decoded = Buffer.from(sessionCookie.value, 'base64').toString();
+    const [userId] = decoded.split(':');
+
     const { searchParams } = new URL(request.url);
     const subtopicId = searchParams.get('subtopicId');
 
@@ -22,20 +25,28 @@ export async function GET(request: NextRequest) {
       include: {
         author: { select: { id: true, name: true } },
         likes: true,
-        _count: { select: { likes: true } }
+        attachments: true,
+        _count: { select: { likes: true, replies: true } }
       },
       orderBy: { createdAt: 'asc' }
     });
 
-    // Calcular likes y dislikes
     const postsWithLikes = posts.map(post => {
       const likes = post.likes.filter(l => l.type === 'like').length;
       const dislikes = post.likes.filter(l => l.type === 'dislike').length;
+      const userLike = post.likes.find(l => l.userId === userId);
       return {
-        ...post,
+        id: post.id,
+        content: post.content,
+        createdAt: post.createdAt,
+        updatedAt: post.updatedAt,
+        parentId: post.parentId,
+        author: post.author,
         likesCount: likes,
         dislikesCount: dislikes,
-        likes: undefined
+        userLike: userLike?.type,
+        repliesCount: post._count.replies,
+        attachments: post.attachments
       };
     });
 
@@ -46,7 +57,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Crear post
+// POST - Crear post o respuesta
 export async function POST(request: NextRequest) {
   try {
     const sessionCookie = (await cookies()).get('session');
@@ -57,22 +68,43 @@ export async function POST(request: NextRequest) {
     const decoded = Buffer.from(sessionCookie.value, 'base64').toString();
     const [userId] = decoded.split(':');
 
-    const { subtopicId, content } = await request.json();
+    const { subtopicId, content, parentId, attachments } = await request.json();
 
     if (!subtopicId || !content) {
       return NextResponse.json({ error: 'Subtema y contenido son requeridos' }, { status: 400 });
+    }
+
+    if (parentId) {
+      const parentPost = await db.post.findUnique({ where: { id: parentId } });
+      if (!parentPost || parentPost.subtopicId !== subtopicId) {
+        return NextResponse.json({ error: 'Post padre no válido' }, { status: 400 });
+      }
     }
 
     const post = await db.post.create({
       data: {
         subtopicId,
         userId,
-        content
+        content,
+        parentId: parentId || null
       },
       include: {
         author: { select: { id: true, name: true } }
       }
     });
+
+    if (attachments && attachments.length > 0) {
+      await db.fileAttachment.createMany({
+        data: attachments.map((att: any) => ({
+          url: att.url,
+          name: att.name,
+          size: att.size,
+          type: att.type,
+          key: att.key,
+          postId: post.id
+        }))
+      });
+    }
 
     return NextResponse.json({ success: true, post });
   } catch (error) {
