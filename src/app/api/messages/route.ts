@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const [userId] = decoded.split(':');
 
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type') || 'received'; // 'received' o 'sent'
+    const type = searchParams.get('type') || 'received';
 
     const where = type === 'sent' 
       ? { senderId: userId }
@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
       where,
       include: {
         sender: { select: { id: true, name: true } },
-        receiver: { select: { id: true, name: true } }
+        receiver: { select: { id: true, name: true } },
+        attachments: true
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
     const decoded = Buffer.from(sessionCookie.value, 'base64').toString();
     const [userId] = decoded.split(':');
 
-    const { receiverId, subject, content } = await request.json();
+    const { receiverId, subject, content, attachments } = await request.json();
 
     if (!receiverId || !content) {
       return NextResponse.json({ error: 'Destinatario y contenido son requeridos' }, { status: 400 });
@@ -65,6 +66,19 @@ export async function POST(request: NextRequest) {
         receiver: { select: { id: true, name: true } }
       }
     });
+
+    if (attachments && attachments.length > 0) {
+      await db.fileAttachment.createMany({
+        data: attachments.map((att: any) => ({
+          url: att.url,
+          name: att.name,
+          size: att.size,
+          type: att.type,
+          key: att.key,
+          messageId: message.id
+        }))
+      });
+    }
 
     return NextResponse.json({ success: true, message });
   } catch (error) {
