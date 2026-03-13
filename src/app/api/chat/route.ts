@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
     const messages = await db.chatMessage.findMany({
       where: { topicId },
       include: {
-        user: { select: { id: true, name: true } }
+        user: { select: { id: true, name: true } },
+        attachments: true
       },
       orderBy: { createdAt: 'asc' }
     });
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
     const decoded = Buffer.from(sessionCookie.value, 'base64').toString();
     const [userId] = decoded.split(':');
 
-    const { topicId, message } = await request.json();
+    const { topicId, message, attachments } = await request.json();
 
     if (!topicId || !message) {
       return NextResponse.json({ error: 'Tema y mensaje son requeridos' }, { status: 400 });
@@ -59,6 +60,19 @@ export async function POST(request: NextRequest) {
         user: { select: { id: true, name: true } }
       }
     });
+
+    if (attachments && attachments.length > 0) {
+      await db.fileAttachment.createMany({
+        data: attachments.map((att: any) => ({
+          url: att.url,
+          name: att.name,
+          size: att.size,
+          type: att.type,
+          key: att.key,
+          chatMessageId: chatMessage.id
+        }))
+      });
+    }
 
     return NextResponse.json({ success: true, message: chatMessage });
   } catch (error) {
