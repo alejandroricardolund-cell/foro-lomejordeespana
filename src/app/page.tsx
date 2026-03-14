@@ -1479,20 +1479,18 @@ Entra en: https://lomejordeespana.es
           )}
 
           {view === 'messages' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Tabs value={messageTab} onValueChange={(v) => setMessageTab(v as 'received' | 'sent')}>
-                  <TabsList className="bg-slate-800">
-                    <TabsTrigger value="received">Recibidos {unreadCount > 0 && `(${unreadCount})`}</TabsTrigger>
-                    <TabsTrigger value="sent">Enviados</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                <Button size="sm" onClick={handleOpenNewMessage}>
-                  <Plus className="h-4 w-4 mr-1" />Nuevo Mensaje
-                </Button>
-              </div>
-              
-              <TabsContent value="received" className="space-y-3">
+  <Tabs value={messageTab} onValueChange={(v) => setMessageTab(v as 'received' | 'sent')} className="space-y-4">
+    <div className="flex items-center justify-between">
+      <TabsList className="bg-slate-800">
+        <TabsTrigger value="received">Recibidos {unreadCount > 0 && `(${unreadCount})`}</TabsTrigger>
+        <TabsTrigger value="sent">Enviados</TabsTrigger>
+      </TabsList>
+      <Button size="sm" onClick={handleOpenNewMessage}>
+        <Plus className="h-4 w-4 mr-1" />Nuevo Mensaje
+      </Button>
+    </div>
+    
+    <TabsContent value="received" className="space-y-3">
                 {messages.length === 0 ? (
                   <Card className="bg-slate-800/50 border-slate-700">
                     <CardContent className="p-6 text-center text-slate-400">
