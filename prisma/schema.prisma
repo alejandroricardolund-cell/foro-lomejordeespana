@@ -1,0 +1,167 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// Usuario del foro
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  accessKey     String   @unique // Clave personal única para entrar
+  keyIsPrivate  Boolean  @default(false) // Si es true, el admin no puede verla
+  role          String   @default("member") // "admin" o "member"
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  invitedBy     String?  // ID del admin que invitó
+  lastActiveAt  DateTime @default(now()) // Última actividad del usuario
+
+  // Relaciones
+  posts            Post[]
+  chatMessages     ChatMessage[]
+  likes            Like[]
+  sentMessages     Message[]  @relation("SentMessages")
+  receivedMessages Message[]  @relation("ReceivedMessages")
+  subtopics        Subtopic[]
+  accessAttempts   AccessAttempt[]
+  topicsCreated    Topic[]
+
+  inviter User?  @relation("InvitedBy", fields: [invitedBy], references: [id])
+  invited User[] @relation("InvitedBy")
+}
+
+// Temas/Pestañas generales (solo admin puede crear)
+model Topic {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String
+
+  // Relaciones
+  subtopics    Subtopic[]
+  chatMessages ChatMessage[]
+  creator      User      @relation(fields: [createdBy], references: [id])
+}
+
+// Subtemas dentro de cada tema (usuarios pueden crear)
+model Subtopic {
+  id        String   @id @default(cuid())
+  topicId   String
+  name      String
+  createdAt DateTime @default(now())
+  createdBy String
+
+  // Relaciones
+  topic    Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  posts    Post[]
+  creator  User     @relation(fields: [createdBy], references: [id])
+}
+
+// Publicaciones dentro de subtemas
+model Post {
+  id         String   @id @default(cuid())
+  subtopicId String
+  userId     String
+  content    String
+  parentId   String?  // Para respuestas/hilos (null = post principal)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relaciones
+  subtopic     Subtopic  @relation(fields: [subtopicId], references: [id], onDelete: Cascade)
+  author       User      @relation(fields: [userId], references: [id])
+  likes        Like[]
+  parent       Post?     @relation("PostReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies      Post[]    @relation("PostReplies")
+  attachments  FileAttachment[]
+}
+
+// Mensajes del chat de brainstorming por tema
+model ChatMessage {
+  id        String   @id @default(cuid())
+  topicId   String
+  userId    String
+  message   String
+  createdAt DateTime @default(now())
+
+  // Relaciones
+  topic       Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  user        User  @relation(fields: [userId], references: [id])
+  attachments FileAttachment[]
+}
+
+// Sistema de likes/dislikes
+model Like {
+  id     String @id @default(cuid())
+  postId String
+  userId String
+  type   String // "like" o "dislike"
+
+  // Relaciones
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId]) // Un usuario solo puede dar like/dislike una vez por post
+}
+
+// Correo interno entre usuarios
+model Message {
+  id          String   @id @default(cuid())
+  senderId    String
+  receiverId  String
+  subject     String
+  content     String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  // Relaciones
+  sender      User  @relation("SentMessages", fields: [senderId], references: [id])
+  receiver    User  @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  attachments FileAttachment[]
+}
+
+// Control de intentos de acceso
+model AccessAttempt {
+  id        String   @id @default(cuid())
+  userId    String?
+  keyUsed   String
+  success   Boolean
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  // Relaciones
+  user User? @relation(fields: [userId], references: [id])
+}
+
+// Archivos adjuntos
+model FileAttachment {
+  id          String   @id @default(cuid())
+  url         String   // URL del archivo en Uploadthing
+  name        String   // Nombre original del archivo
+  size        Int      // Tamaño en bytes
+  type        String   // Tipo MIME (image/jpeg, audio/mp3, etc.)
+  key         String   // Key de uploadthing para identificación
+  
+  // Relaciones opcionales (un archivo puede estar en un post o mensaje privado)
+  postId      String?
+  messageId   String?
+  chatMessageId String?
+  
+  createdAt   DateTime @default(now())
+  
+  // Relaciones
+  post        Post?        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  message     Message?     @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  chatMessage ChatMessage? @relation(fields: [chatMessageId], references: [id], onDelete: Cascade)
+}
