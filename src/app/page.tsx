@@ -912,7 +912,7 @@ export default function ForumPage() {
   // Generar mensaje para compartir
   const getInvitationMessage = () => {
     if (!invitedUserKey) return '';
-    return `¡Has sido invitado al foro "Lo Mejor de España"!
+    return `¡Has sido invitado al foro "España"!
 
 Tu clave de acceso es: ${invitedUserKey.accessKey}
 
@@ -1025,7 +1025,7 @@ Entra en: https://lomejordeespaña.es
         <div className="p-4 border-b border-slate-700 flex items-center justify-between">
           {sidebarOpen && (
             <h1 className="font-bold text-lg bg-gradient-to-r from-red-500 to-yellow-500 bg-clip-text text-transparent">
-              Lo Mejor De España
+              España
             </h1>
           )}
           <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)}>
