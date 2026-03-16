@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button'; 
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -296,48 +296,28 @@ export default function ForumPage() {
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       if (event.state && event.state.view) {
-        const newView = event.state.view;
-        setView(newView);
-        
-        // Actualizar selectedTopic y selectedSubtopic según el estado
-        if (newView === 'forum') {
+        setView(event.state.view);
+        if (event.state.view === 'forum') {
           setSelectedTopic(null);
           setSelectedSubtopic(null);
-        } else if (newView === 'topic' && event.state.topicId) {
-          const topic = topics.find(t => t.id === event.state.topicId);
-          if (topic) setSelectedTopic(topic);
-          setSelectedSubtopic(null);
-        } else if (newView === 'subtopic' && event.state.subtopicId) {
-          // Buscar el subtopic en los topics
-          for (const t of topics) {
-            const st = t.subtopics.find(s => s.id === event.state.subtopicId);
-            if (st) {
-              setSelectedTopic(t);
-              setSelectedSubtopic(st);
-              break;
-            }
-          }
         }
       } else {
         // Si no hay estado, volver al foro
         if (user) {
           setView('forum');
-          setSelectedTopic(null);
-          setSelectedSubtopic(null);
-          // Asegurar que hay un estado en el historial
-          window.history.pushState({ view: 'forum' }, '', window.location.pathname);
         }
       }
     };
     
     window.addEventListener('popstate', handlePopState);
+    // Inicializar el historial con el estado actual
+    window.history.replaceState({ view: 'forum' }, '');
     
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [user, topics]);
-
-  const handleInit = async () => {
+  }, [user]);
+    const handleInit = async () => {
     if (!confirm('¿Desea inicializar el sistema? Se creará una cuenta de administrador.')) return;
     
     setLoading(true);
@@ -451,7 +431,6 @@ export default function ForumPage() {
     setSelectedTopic(topic);
     loadChat(topic.id);
     setView('topic');
-    // Añadir al historial del navegador
     if (typeof window !== 'undefined') {
       window.history.pushState({ view: 'topic', topicId: topic.id }, '');
     }
@@ -461,7 +440,6 @@ export default function ForumPage() {
     setSelectedSubtopic(subtopic);
     loadPosts(subtopic.id);
     setView('subtopic');
-    // Añadir al historial del navegador
     if (typeof window !== 'undefined') {
       window.history.pushState({ view: 'subtopic', subtopicId: subtopic.id }, '');
     }
@@ -471,7 +449,6 @@ export default function ForumPage() {
     if (selectedTopic) {
       loadChat(selectedTopic.id);
       setView('chat');
-      // Añadir al historial del navegador
       if (typeof window !== 'undefined') {
         window.history.pushState({ view: 'chat', topicId: selectedTopic.id }, '');
       }
@@ -481,7 +458,6 @@ export default function ForumPage() {
   const goToAdmin = () => {
     loadMembers();
     setView('admin');
-    // Añadir al historial del navegador
     if (typeof window !== 'undefined') {
       window.history.pushState({ view: 'admin' }, '');
     }
@@ -495,13 +471,11 @@ export default function ForumPage() {
     loadMessages();
     loadSentMessages();
     setView('messages');
-    // Añadir al historial del navegador
     if (typeof window !== 'undefined') {
       window.history.pushState({ view: 'messages' }, '');
     }
   };
   
-  // Volver al inicio
   const goToForum = () => {
     setView('forum');
     setSelectedTopic(null);
@@ -577,7 +551,6 @@ export default function ForumPage() {
         setNewSubtopicName('');
         setShowNewSubtopic(false);
         loadTopics();
-        // Actualizar selectedTopic
         const updated = topics.find(t => t.id === selectedTopic.id);
         if (updated) setSelectedTopic(updated);
       }
@@ -775,10 +748,9 @@ export default function ForumPage() {
 
   const deleteMessage = async (id: string) => {
     if (!confirm('¿Eliminar este mensaje?')) return;
+    if (!user) return;
     try {
-      await fetch(`/api/messages/${id}?userId=${user?.id}`, {
-        method: 'DELETE'
-      });
+      await fetch(`/api/messages/${id}?userId=${user.id}`, { method: 'DELETE' });
       loadMessages();
       loadSentMessages();
     } catch (e) {
@@ -803,7 +775,7 @@ export default function ForumPage() {
           accessKey: data.user.accessKey
         });
         setNewUserName('');
-        setNewUserEmail('');
+        setUserEmail('');
         setShowInviteUser(false);
         loadMembers();
       } else {
@@ -954,8 +926,7 @@ Entra en: https://lomejordeespaña.es
     loadAllMembers();
     setShowNewMessage(true);
   };
-
-  // RENDER PRINCIPAL
+    // RENDER PRINCIPAL
   if (checkingSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -964,25 +935,20 @@ Entra en: https://lomejordeespaña.es
     );
   }
 
-  // Vista de Login - Solo globo terráqueo y título
+  // Vista de Login
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
         <Card className="w-full max-w-md shadow-2xl border-slate-700 bg-slate-800/50 backdrop-blur">
           <CardHeader className="text-center space-y-4">
-            {/* Solo el globo terráqueo SVG */}
             <div className="mx-auto w-20 h-20 bg-gradient-to-br from-red-600 to-yellow-500 rounded-full flex items-center justify-center shadow-lg">
               <svg viewBox="0 0 24 24" className="w-12 h-12 text-white" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
               </svg>
             </div>
-            {/* Solo el título */}
             <CardTitle className="text-3xl font-bold bg-gradient-to-r from-red-500 via-yellow-500 to-red-500 bg-clip-text text-transparent">
               Lo Mejor De España
             </CardTitle>
-            <CardDescription className="text-slate-300 text-lg mt-2">
-              Foro Privado
-            </CardDescription>
           </CardHeader>
           
           <CardContent>
@@ -1235,7 +1201,7 @@ Entra en: https://lomejordeespaña.es
                             <Badge variant="outline" className="border-green-500">Post</Badge>
                             <span className="font-medium">{r.title}</span>
                           </div>
-                          <p className="text-sm text-slate-400 mt-1">{r.description}</p>
+                          <p className="text-sm text-slate-400 mt-1 line-clamp-2">{r.description}</p>
                         </div>
                       ))}
                     </div>
@@ -1244,34 +1210,28 @@ Entra en: https://lomejordeespaña.es
               )}
             </div>
             
-            <Badge variant="outline" className="gap-1">
-              <User className="h-3 w-3" />
-              {user.name}
-              {user.role === 'admin' && <Crown className="h-3 w-3 text-yellow-500" />}
-            </Badge>
+            <span className="text-sm text-slate-400">
+              Hola, <span className="text-yellow-500">{user.name}</span>
+            </span>
           </div>
         </header>
-
-        {/* Área de contenido */}
+                {/* Contenido */}
         <main className="flex-1 overflow-auto p-4">
-          {/* Vista: Foro principal (lista de temas) */}
+          {/* Vista: Foro principal */}
           {view === 'forum' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Temas</h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Temas del Foro</h3>
                 {user.role === 'admin' && (
                   <Dialog open={showNewTopic} onOpenChange={setShowNewTopic}>
                     <DialogTrigger asChild>
-                      <Button size="sm" className="gap-1">
-                        <Plus className="h-4 w-4" />Nuevo Tema
+                      <Button size="sm">
+                        <Plus className="h-4 w-4 mr-2" />Nuevo Tema
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="bg-slate-800 border-slate-700">
                       <DialogHeader>
                         <DialogTitle>Crear Nuevo Tema</DialogTitle>
-                        <DialogDescription>
-                          Los temas son las categorías principales del foro.
-                        </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4 pt-4">
                         <Input
@@ -1286,7 +1246,7 @@ Entra en: https://lomejordeespaña.es
                           onChange={(e) => setNewTopicDesc(e.target.value)}
                           className="bg-slate-700 border-slate-600"
                         />
-                        <Button onClick={createTopic} disabled={loading || !newTopicName.trim()}>
+                        <Button onClick={createTopic} disabled={loading} className="w-full">
                           {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                           Crear Tema
                         </Button>
@@ -1296,34 +1256,26 @@ Entra en: https://lomejordeespaña.es
                 )}
               </div>
               
-              <div className="grid gap-4">
-                {topics.length === 0 ? (
-                  <Card className="bg-slate-800/50 border-slate-700">
-                    <CardContent className="p-8 text-center text-slate-400">
-                      No hay temas creados. {user.role === 'admin' && 'Crea el primer tema para comenzar.'}
-                    </CardContent>
-                  </Card>
-                ) : (
-                  topics.map((topic) => (
-                    <Card key={topic.id} className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition-colors">
-                      <CardHeader className="pb-2">
-                        <div className="flex items-start justify-between">
-                          <div className="cursor-pointer flex-1" onClick={() => goToTopic(topic)}>
-                            <CardTitle className="text-lg hover:text-yellow-500 transition-colors">
-                              {topic.name}
-                            </CardTitle>
-                            {topic.description && (
-                              <CardDescription className="text-slate-400 mt-1">
-                                {topic.description}
-                              </CardDescription>
-                            )}
-                          </div>
+              {topics.length === 0 ? (
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardContent className="p-6 text-center text-slate-400">
+                    No hay temas creados. {user.role === 'admin' && 'Crea el primer tema para comenzar.'}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {topics.map((topic) => (
+                    <Card key={topic.id} className="bg-slate-800/50 border-slate-700 hover:border-yellow-500 transition-colors">
+                      <CardHeader className="cursor-pointer" onClick={() => goToTopic(topic)}>
+                        <div className="flex justify-between items-start">
+                          <CardTitle className="text-lg">{topic.name}</CardTitle>
                           {user.role === 'admin' && (
                             <div className="flex gap-1">
                               <Button 
                                 variant="ghost" 
                                 size="sm"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setEditingTopic(topic);
                                   setEditTopicName(topic.name);
                                   setEditTopicDesc(topic.description || '');
@@ -1333,168 +1285,119 @@ Entra en: https://lomejordeespaña.es
                               </Button>
                               <Button 
                                 variant="ghost" 
-                                size="sm" 
-                                className="text-red-400 hover:text-red-300"
-                                onClick={() => deleteTopic(topic.id)}
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteTopic(topic.id);
+                                }}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4 text-red-400" />
                               </Button>
                             </div>
                           )}
                         </div>
+                        <CardDescription className="text-slate-400 mt-1">
+                          {topic.description || 'Sin descripción'}
+                        </CardDescription>
                       </CardHeader>
                       <CardContent>
-                        <div className="flex items-center gap-4 text-sm text-slate-400">
+                        <div className="flex justify-between text-sm text-slate-400">
                           <span>{topic._count.subtopics} subtemas</span>
                           <span>{topic._count.chatMessages} mensajes en chat</span>
                         </div>
-                        {topic.subtopics.length > 0 && (
-                          <div className="mt-3 space-y-1">
-                            {topic.subtopics.slice(0, 3).map((st) => (
-                              <div 
-                                key={st.id}
-                                className="flex items-center gap-2 text-sm text-slate-300 hover:text-yellow-500 cursor-pointer"
-                                onClick={() => { setSelectedTopic(topic); goToSubtopic(st); }}
-                              >
-                                <ChevronRight className="h-3 w-3" />
-                                {st.name}
-                                <span className="text-slate-500">({st._count.posts})</span>
-                              </div>
-                            ))}
-                            {topic.subtopics.length > 3 && (
-                              <div 
-                                className="text-sm text-slate-400 hover:text-yellow-500 cursor-pointer"
-                                onClick={() => goToTopic(topic)}
-                              >
-                                Ver más...
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </CardContent>
                     </Card>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Vista: Tema (lista de subtemas y acceso al chat) */}
+          {/* Vista: Tema seleccionado */}
           {view === 'topic' && selectedTopic && (
             <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Button onClick={goToChat} className="gap-2">
-                  <MessageSquare className="h-4 w-4" />Chat de Brainstorming
-                </Button>
-                <Dialog open={showNewSubtopic} onOpenChange={setShowNewSubtopic}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-1">
-                      <Plus className="h-4 w-4" />Nuevo Subtema
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-slate-800 border-slate-700">
-                    <DialogHeader>
-                      <DialogTitle>Crear Subtema</DialogTitle>
-                      <DialogDescription>
-                        Los subtemas son subdivisiones dentro de un tema para organizar las discusiones.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 pt-4">
-                      <Input
-                        placeholder="Nombre del subtema"
-                        value={newSubtopicName}
-                        onChange={(e) => setNewSubtopicName(e.target.value)}
-                        className="bg-slate-700 border-slate-600"
-                      />
-                      <Button onClick={createSubtopic} disabled={loading || !newSubtopicName.trim()}>
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                        Crear Subtema
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Subtemas</h3>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={goToChat}>
+                    <MessageSquare className="h-4 w-4 mr-2" />Chat Brainstorming
+                  </Button>
+                  <Dialog open={showNewSubtopic} onOpenChange={setShowNewSubtopic}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="h-4 w-4 mr-2" />Nuevo Subtema
                       </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent className="bg-slate-800 border-slate-700">
+                      <DialogHeader>
+                        <DialogTitle>Crear Nuevo Subtema</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 pt-4">
+                        <Input
+                          placeholder="Nombre del subtema"
+                          value={newSubtopicName}
+                          onChange={(e) => setNewSubtopicName(e.target.value)}
+                          className="bg-slate-700 border-slate-600"
+                        />
+                        <Button onClick={createSubtopic} disabled={loading} className="w-full">
+                          {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                          Crear Subtema
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
               
-              <div className="grid gap-3">
-                {selectedTopic.subtopics.length === 0 ? (
-                  <Card className="bg-slate-800/50 border-slate-700">
-                    <CardContent className="p-6 text-center text-slate-400">
-                      No hay subtemas. Crea uno para comenzar la discusión.
-                    </CardContent>
-                  </Card>
-                ) : (
-                  selectedTopic.subtopics.map((st) => (
+              {selectedTopic.subtopics.length === 0 ? (
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardContent className="p-6 text-center text-slate-400">
+                    No hay subtemas. Crea uno para empezar a discutir.
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-2">
+                  {selectedTopic.subtopics.map((subtopic) => (
                     <Card 
-                      key={st.id}
-                      className="bg-slate-800/50 border-slate-700 hover:border-slate-600 transition-colors"
+                      key={subtopic.id} 
+                      className="bg-slate-800/50 border-slate-700 hover:border-yellow-500 transition-colors cursor-pointer"
+                      onClick={() => goToSubtopic(subtopic)}
                     >
-                      <CardContent className="p-4 flex items-center justify-between">
-                        <div 
-                          className="cursor-pointer flex-1"
-                          onClick={() => goToSubtopic(st)}
-                        >
-                          <h4 className="font-medium hover:text-yellow-500">{st.name}</h4>
-                          <p className="text-sm text-slate-400">
-                            Por {st.creator.name} • {st._count.posts} publicaciones
-                          </p>
+                      <CardContent className="p-4 flex justify-between items-center">
+                        <div>
+                          <span className="font-medium">{subtopic.name}</span>
+                          <span className="text-sm text-slate-400 ml-2">
+                            por {subtopic.creator.name} • {subtopic._count.posts} posts
+                          </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <ChevronRight className="h-5 w-5 text-slate-400 cursor-pointer" onClick={() => goToSubtopic(st)} />
-                          {(user.role === 'admin' || st.creator.id === user.id) && (
-                            <div className="flex gap-1">
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingSubtopic(st);
-                                  setEditSubtopicName(st.name);
-                                }}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                className="text-red-400 hover:text-red-300"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteSubtopic(st.id);
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
+                          <ChevronRight className="h-4 w-4 text-slate-400" />
                         </div>
                       </CardContent>
                     </Card>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* Vista: Subtema (posts) */}
           {view === 'subtopic' && selectedSubtopic && (
             <div className="space-y-4">
-              {/* Botón para mostrar/ocultar formulario de nueva publicación */}
-              <Button 
-                onClick={() => setShowNewPostForm(!showNewPostForm)} 
-                variant="outline"
-                className="w-full justify-between"
-              >
-                <span className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  {showNewPostForm ? 'Ocultar formulario' : 'Nueva publicación'}
-                </span>
-                {showNewPostForm ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </Button>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Discusión</h3>
+                <Button 
+                  size="sm" 
+                  onClick={() => setShowNewPostForm(!showNewPostForm)}
+                >
+                  {showNewPostForm ? 'Cancelar' : <><Plus className="h-4 w-4 mr-2" />Nuevo Post</>}
+                </Button>
+              </div>
               
-              {/* Formulario colapsable */}
+              {/* Formulario nuevo post */}
               {showNewPostForm && (
-                <Card className="bg-slate-800/30 border-slate-700">
-                  <CardContent className="p-4">
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardContent className="p-4 space-y-3">
                     <Textarea
                       placeholder="Escribe tu publicación..."
                       value={newPostContent}
@@ -1504,303 +1407,257 @@ Entra en: https://lomejordeespaña.es
                     <div className="mt-2">
                       <FileUpload
                         allowedTypes="all"
-                        maxFiles={5}
-                        onUploadComplete={(files) => setPostAttachments(prev => [...prev, ...files])}
-                        existingFiles={postAttachments}
-                        onRemoveExisting={(index) => setPostAttachments(prev => prev.filter((_, i) => i !== index))}
+                        onUploadComplete={(files) => setPostAttachments(files)}
                       />
                     </div>
-                    <div className="flex justify-end gap-2 mt-2">
-                      <Button variant="ghost" onClick={() => { setShowNewPostForm(false); setNewPostContent(''); setPostAttachments([]); }}>
-                        Cancelar
-                      </Button>
-                      <Button onClick={createPost} disabled={loading || !newPostContent.trim()}>
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                        Publicar
-                      </Button>
-                    </div>
+                    <Button onClick={createPost} disabled={loading || !newPostContent.trim()}>
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Publicar
+                    </Button>
                   </CardContent>
                 </Card>
               )}
               
-              <div className="space-y-3">
-                {posts.length === 0 ? (
-                  <Card className="bg-slate-800/50 border-slate-700">
-                    <CardContent className="p-6 text-center text-slate-400">
-                      Sé el primero en publicar.
-                    </CardContent>
-                  </Card>
-                ) : (
-                  posts.filter(p => !p.parentId).map((post) => {
-                    const isExpanded = expandedPosts.has(post.id);
-                    const toggleExpand = () => {
-                      const newExpanded = new Set(expandedPosts);
-                      if (newExpanded.has(post.id)) {
-                        newExpanded.delete(post.id);
-                      } else {
-                        newExpanded.add(post.id);
-                      }
-                      setExpandedPosts(newExpanded);
-                    };
-                    
-                    return (
-                      <Card key={post.id} className="bg-slate-800/50 border-slate-700">
-                        <CardContent className="p-4">
-                          {/* Cabecera del post - siempre visible */}
-                          <div 
-                            className="flex items-center justify-between cursor-pointer"
-                            onClick={toggleExpand}
-                          >
-                            <div className="flex items-center gap-2 text-sm">
-                              <User className="h-4 w-4 text-slate-400" />
-                              <span className="font-medium text-slate-200">{post.author.name}</span>
-                              <span className="text-slate-500">•</span>
-                              <span className="text-slate-400">{formatDate(post.createdAt)}</span>
-                              {post.updatedAt !== post.createdAt && (
-                                <span className="text-slate-500">(editado)</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {/* Botones de editar/borrar para el autor */}
-                              {post.author.id === user.id && (
-                                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={() => { setEditingPost(post.id); setEditContent(post.content); }}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    className="text-red-400 hover:text-red-300"
-                                    onClick={() => deletePost(post.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              )}
-                              {/* Botón expandir/colapsar */}
-                              <Button variant="ghost" size="sm">
-                                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {/* Lista de posts */}
+              {posts.length === 0 ? (
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardContent className="p-6 text-center text-slate-400">
+                    No hay publicaciones. Sé el primero en escribir.
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {posts.filter(p => !p.parentId).map((post) => (
+                    <Card key={post.id} className="bg-slate-800/50 border-slate-700">
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-yellow-500">{post.author.name}</span>
+                            <span className="text-xs text-slate-400">{formatDate(post.createdAt)}</span>
+                          </div>
+                          {post.author.id === user.id && (
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => {
+                                  setEditingPost(post.id);
+                                  setEditContent(post.content);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => deletePost(post.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-400" />
                               </Button>
                             </div>
+                          )}
+                        </div>
+                        
+                        {editingPost === post.id ? (
+                          <div className="space-y-2">
+                            <Textarea
+                              value={editContent}
+                              onChange={(e) => setEditContent(e.target.value)}
+                              className="bg-slate-700 border-slate-600"
+                            />
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={() => updatePost(post.id)}>Guardar</Button>
+                              <Button size="sm" variant="outline" onClick={() => setEditingPost(null)}>Cancelar</Button>
+                            </div>
                           </div>
-                          
-                          {/* Preview del contenido cuando está colapsado */}
-                          {!isExpanded && (
-                            <p className="text-slate-400 text-sm mt-2 line-clamp-2">
-                              {post.content.substring(0, 150)}{post.content.length > 150 ? '...' : ''}
-                            </p>
-                          )}
-                          
-                          {/* Contenido completo cuando está expandido */}
-                          {isExpanded && (
-                            <>
-                              {editingPost === post.id ? (
-                                <div className="space-y-2 mt-3">
-                                  <Textarea
-                                    value={editContent}
-                                    onChange={(e) => setEditContent(e.target.value)}
-                                    className="bg-slate-700 border-slate-600"
-                                  />
-                                  <div className="flex gap-2">
-                                    <Button size="sm" onClick={() => updatePost(post.id)}>Guardar</Button>
-                                    <Button size="sm" variant="ghost" onClick={() => setEditingPost(null)}>Cancelar</Button>
+                        ) : (
+                          <p className="text-slate-300">{post.content}</p>
+                        )}
+                        
+                        {/* Archivos adjuntos */}
+                        {post.attachments && post.attachments.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {post.attachments.map((att) => (
+                              <a 
+                                key={att.id} 
+                                href={att.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700 rounded text-sm hover:bg-slate-600"
+                              >
+                                📎 {att.name}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Likes/Dislikes */}
+                        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-700">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleLike(post.id, 'like')}
+                            className={post.userLike === 'like' ? 'text-green-500' : ''}
+                          >
+                            <ThumbsUp className="h-4 w-4 mr-1" />
+                            {post.likesCount}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleLike(post.id, 'dislike')}
+                            className={post.userLike === 'dislike' ? 'text-red-500' : ''}
+                          >
+                            <ThumbsDown className="h-4 w-4 mr-1" />
+                            {post.dislikesCount}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => setReplyingTo(post)}
+                          >
+                            <Reply className="h-4 w-4 mr-1" />
+                            Responder
+                          </Button>
+                        </div>
+                        
+                        {/* Respuestas */}
+                        {posts.filter(p => p.parentId === post.id).length > 0 && (
+                          <div className="mt-4 pl-4 border-l-2 border-slate-700 space-y-3">
+                            {posts.filter(p => p.parentId === post.id).map((reply) => (
+                              <div key={reply.id} className="bg-slate-700/50 p-3 rounded">
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="font-medium text-yellow-500 text-sm">{reply.author.name}</span>
+                                  <span className="text-xs text-slate-400">{formatDate(reply.createdAt)}</span>
+                                </div>
+                                <p className="text-sm text-slate-300">{reply.content}</p>
+                                {reply.attachments && reply.attachments.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {reply.attachments.map((att) => (
+                                      <a 
+                                        key={att.id} 
+                                        href={att.url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 px-2 py-1 bg-slate-600 rounded text-xs hover:bg-slate-500"
+                                      >
+                                        📎 {att.name}
+                                      </a>
+                                    ))}
                                   </div>
-                                </div>
-                              ) : (
-                                <>
-                                  <p className="text-slate-200 whitespace-pre-wrap mt-3">{post.content}</p>
-                                  {post.attachments && post.attachments.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                      {post.attachments.map((att) => (
-                                        <a 
-                                          key={att.id} 
-                                          href={att.url} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700 rounded text-sm hover:bg-slate-600"
-                                        >
-                                          {att.type.startsWith('image/') ? (
-                                            <img src={att.url} alt={att.name} className="w-16 h-16 object-cover rounded" />
-                                          ) : (
-                                            <>
-                                              <File className="h-4 w-4" />
-                                              {att.name}
-                                            </>
-                                          )}
-                                        </a>
-                                      ))}
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                              
-                              {/* Likes/Dislikes y Responder */}
-                              <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-700">
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  className={`gap-1 ${post.userLike === 'like' ? 'text-green-500' : 'text-slate-400'}`}
-                                  onClick={() => handleLike(post.id, 'like')}
-                                >
-                                  <ThumbsUp className="h-4 w-4" />
-                                  {post.likesCount}
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  className={`gap-1 ${post.userLike === 'dislike' ? 'text-red-500' : 'text-slate-400'}`}
-                                  onClick={() => handleLike(post.id, 'dislike')}
-                                >
-                                  <ThumbsDown className="h-4 w-4" />
-                                  {post.dislikesCount}
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  className="gap-1 text-slate-400"
-                                  onClick={() => setReplyingTo(post)}
-                                >
-                                  <Reply className="h-4 w-4" />
-                                  Responder
-                                </Button>
+                                )}
                               </div>
-                              
-                              {/* Respuestas */}
-                              {posts.filter(p => p.parentId === post.id).length > 0 && (
-                                <div className="mt-3 pl-4 border-l-2 border-slate-700 space-y-2">
-                                  {posts.filter(p => p.parentId === post.id).map((reply) => (
-                                    <div key={reply.id} className="bg-slate-700/30 p-3 rounded">
-                                      <div className="flex items-center gap-2 text-sm text-slate-400 mb-1">
-                                        <User className="h-3 w-3" />
-                                        <span className="font-medium text-slate-300">{reply.author.name}</span>
-                                        <span>•</span>
-                                        <span>{formatDate(reply.createdAt)}</span>
-                                      </div>
-                                      <p className="text-slate-200 text-sm whitespace-pre-wrap">{reply.content}</p>
-                                      {reply.attachments && reply.attachments.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 mt-2">
-                                          {reply.attachments.map((att) => (
-                                            <a 
-                                              key={att.id} 
-                                              href={att.url} 
-                                              target="_blank" 
-                                              rel="noopener noreferrer"
-                                              className="inline-flex items-center gap-1 px-2 py-1 bg-slate-600 rounded text-xs hover:bg-slate-500"
-                                            >
-                                              {att.type.startsWith('image/') ? (
-                                                <img src={att.url} alt={att.name} className="w-12 h-12 object-cover rounded" />
-                                              ) : (
-                                                <>
-                                                  <File className="h-3 w-3" />
-                                                  {att.name}
-                                                </>
-                                              )}
-                                            </a>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </CardContent>
-                      </Card>
-                    );
-                  })
-                )}
-              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+              
+              {/* Dialog para responder */}
+              {replyingTo && (
+                <Dialog open={!!replyingTo} onOpenChange={() => setReplyingTo(null)}>
+                  <DialogContent className="bg-slate-800 border-slate-700">
+                    <DialogHeader>
+                      <DialogTitle>Responder a {replyingTo.author.name}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                      <p className="text-slate-400 text-sm italic">"{replyingTo.content}"</p>
+                      <Textarea
+                        placeholder="Tu respuesta..."
+                        value={replyContent}
+                        onChange={(e) => setReplyContent(e.target.value)}
+                        className="bg-slate-700 border-slate-600 min-h-[60px]"
+                      />
+                      <div className="mt-2">
+                        <FileUpload
+                          allowedTypes="all"
+                          onUploadComplete={(files) => setPostAttachments(files)}
+                        />
+                      </div>
+                      <Button onClick={createReply} disabled={loading || !replyContent.trim()} className="w-full">
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                        Enviar Respuesta
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
           )}
 
-          {/* Vista: Chat de Brainstorming */}
+          {/* Vista: Chat */}
           {view === 'chat' && selectedTopic && (
-            <div className="h-full flex flex-col">
-              <Card className="flex-1 bg-slate-800/50 border-slate-700 flex flex-col">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Chat de Brainstorming</CardTitle>
-                  <CardDescription>
-                    Ideas no maduradas, sugerencias y comentarios sobre {selectedTopic.name}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col overflow-hidden">
-                  <div ref={chatRef} className="flex-1 overflow-auto space-y-3 mb-4 pr-2">
-                    {chatMessages.length === 0 ? (
-                      <p className="text-slate-400 text-center">No hay mensajes. ¡Inicia la conversación!</p>
-                    ) : (
-                      chatMessages.map((msg) => (
-                        <div key={msg.id} className={`flex flex-col ${msg.user.id === user.id ? 'items-end' : 'items-start'}`}>
-                          <div className={`max-w-[70%] rounded-lg px-3 py-2 ${
-                            msg.user.id === user.id 
-                              ? 'bg-gradient-to-r from-red-600 to-yellow-600' 
-                              : 'bg-slate-700'
-                          }`}>
-                            <p className="text-sm font-medium mb-1">{msg.user.name}</p>
-                            <p className="text-sm">{msg.message}</p>
-                            {msg.attachments && msg.attachments.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {msg.attachments.map((att) => (
-                                  <a key={att.id} href={att.url} target="_blank" className="text-xs underline opacity-80">
-                                    📎 {att.name}
-                                  </a>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-500 mt-1">{formatDate(msg.createdAt)}</p>
+            <div className="flex flex-col h-[calc(100vh-200px)]">
+              <div ref={chatRef} className="flex-1 overflow-auto space-y-2 mb-4">
+                {chatMessages.length === 0 ? (
+                  <Card className="bg-slate-800/50 border-slate-700">
+                    <CardContent className="p-6 text-center text-slate-400">
+                      No hay mensajes en el chat. Inicia la conversación.
+                    </CardContent>
+                  </Card>
+                ) : (
+                  chatMessages.map((msg) => (
+                    <div 
+                      key={msg.id} 
+                      className={`p-3 rounded-lg ${msg.user.id === user.id ? 'bg-yellow-600/20 ml-auto' : 'bg-slate-700/50'} max-w-[80%]`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-yellow-500 text-sm">{msg.user.name}</span>
+                        <span className="text-xs text-slate-400">{formatDate(msg.createdAt)}</span>
+                      </div>
+                      <p className="text-slate-200">{msg.message}</p>
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {msg.attachments.map((att) => (
+                            <a 
+                              key={att.id} 
+                              href={att.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-slate-600 rounded text-xs hover:bg-slate-500"
+                            >
+                              📎 {att.name}
+                            </a>
+                          ))}
                         </div>
-                      ))
-                    )}
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <FileUpload
-                      allowedTypes="all"
-                      maxFiles={3}
-                      onUploadComplete={(files) => setChatAttachments(prev => [...prev, ...files])}
-                      existingFiles={chatAttachments}
-                      onRemoveExisting={(index) => setChatAttachments(prev => prev.filter((_, i) => i !== index))}
-                    />
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Escribe un mensaje..."
-                        value={newChatMessage}
-                        onChange={(e) => setNewChatMessage(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
-                        className="bg-slate-700 border-slate-600"
-                      />
-                      <Button onClick={sendChatMessage}>
-                        <Send className="h-4 w-4" />
-                      </Button>
+                      )}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  ))
+                )}
+              </div>
+              
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Escribe un mensaje..."
+                  value={newChatMessage}
+                  onChange={(e) => setNewChatMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
+                  className="bg-slate-700 border-slate-600"
+                />
+                <Button size="sm" onClick={sendChatMessage}>
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
 
           {/* Vista: Administración */}
           {view === 'admin' && user.role === 'admin' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Miembros del Foro</h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Gestión de Usuarios</h3>
                 <Dialog open={showInviteUser} onOpenChange={setShowInviteUser}>
                   <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1">
-                      <Plus className="h-4 w-4" />Invitar Miembro
+                    <Button size="sm">
+                      <Plus className="h-4 w-4 mr-2" />Invitar Usuario
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="bg-slate-800 border-slate-700">
                     <DialogHeader>
-                      <DialogTitle>Invitar Nuevo Miembro</DialogTitle>
-                      <DialogDescription>
-                        Se generará una clave de acceso única para el nuevo miembro.
-                      </DialogDescription>
+                      <DialogTitle>Invitar Nuevo Usuario</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 pt-4">
                       <Input
@@ -1816,367 +1673,338 @@ Entra en: https://lomejordeespaña.es
                         onChange={(e) => setNewUserEmail(e.target.value)}
                         className="bg-slate-700 border-slate-600"
                       />
-                      <Button onClick={inviteUser} disabled={loading || !newUserName.trim() || !newUserEmail.trim()}>
+                      <Button onClick={inviteUser} disabled={loading} className="w-full">
                         {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                        Invitar
+                        Crear Invitación
                       </Button>
                     </div>
                   </DialogContent>
                 </Dialog>
               </div>
               
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardContent className="p-0 overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-700">
-                        <th className="text-left p-3 text-sm font-medium text-slate-400">Nombre</th>
-                        <th className="text-left p-3 text-sm font-medium text-slate-400">Email</th>
-                        <th className="text-left p-3 text-sm font-medium text-slate-400">Clave</th>
-                        <th className="text-left p-3 text-sm font-medium text-slate-400">Rol</th>
-                        <th className="text-left p-3 text-sm font-medium text-slate-400">Estado</th>
-                        <th className="text-left p-3 text-sm font-medium text-slate-400">En línea</th>
-                        <th className="text-left p-3 text-sm font-medium text-slate-400">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {members.map((member) => (
-                        <tr key={member.id} className="border-b border-slate-700/50">
-                          <td className="p-3">
-                            <div className="flex items-center gap-2">
-                              {member.name}
-                              {member.role === 'admin' && <Crown className="h-3 w-3 text-yellow-500" />}
-                            </div>
-                          </td>
-                          <td className="p-3 text-slate-400">{member.email}</td>
-                          <td className="p-3">
-                            {member.keyIsPrivate ? (
-                              <div className="flex items-center gap-1" title="Clave privada">
-                                <code className="text-xs bg-slate-700 px-2 py-1 rounded text-slate-500">••••••••••••••••</code>
-                                <Lock className="h-3 w-3 text-slate-500" />
-                              </div>
-                            ) : (
-                              <code className="text-xs bg-slate-700 px-2 py-1 rounded">{member.accessKey}</code>
+              {/* Mostrar clave de invitado */}
+              {invitedUserKey && (
+                <Card className="bg-green-900/30 border-green-500">
+                  <CardContent className="p-4">
+                    <h4 className="font-medium text-green-400 mb-2">¡Usuario creado!</h4>
+                    <p className="text-sm text-slate-300 mb-2">
+                      <strong>{invitedUserKey.name}</strong> ({invitedUserKey.email})
+                    </p>
+                    <div className="flex items-center gap-2 bg-slate-800 p-2 rounded">
+                      <code className="text-yellow-400 flex-1">{invitedUserKey.accessKey}</code>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => copyToClipboard(getInvitationMessage())}
+                      >
+                        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2">
+                      Comparte esta clave con el usuario. Puede cambiarla desde su perfil.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+              
+              <div className="grid gap-2">
+                {members.map((member) => (
+                  <Card key={member.id} className="bg-slate-800/50 border-slate-700">
+                    <CardContent className="p-4 flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-yellow-500 rounded-full flex items-center justify-center font-bold">
+                          {member.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{member.name}</span>
+                            {member.role === 'admin' && <Crown className="h-4 w-4 text-yellow-500" />}
+                            {!member.isActive && <Badge variant="destructive">Inactivo</Badge>}
+                            {isUserOnline(member.lastActiveAt) && (
+                              <Circle className="h-3 w-3 fill-green-500 text-green-500" />
                             )}
-                          </td>
-                          <td className="p-3">
-                            <Badge variant={member.role === 'admin' ? 'default' : 'outline'}>
-                              {member.role === 'admin' ? 'Admin' : 'Miembro'}
-                            </Badge>
-                          </td>
-                          <td className="p-3">
-                            <Badge variant={member.isActive ? 'default' : 'destructive'}>
-                              {member.isActive ? 'Activo' : 'Inactivo'}
-                            </Badge>
-                          </td>
-                          <td className="p-3">
-                            <div className="flex items-center gap-2">
-                              {isUserOnline(member.lastActiveAt) ? (
-                                <>
-                                  <Circle className="h-3 w-3 fill-green-500 text-green-500" />
-                                  <span className="text-green-500 text-sm">En línea</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Circle className="h-3 w-3 text-slate-500" />
-                                  <span className="text-slate-500 text-sm">Desconectado</span>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-3">
-                            <div className="flex gap-1">
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                title={member.isActive ? 'Desactivar' : 'Activar'}
-                                onClick={() => toggleUserActive(member.id)}
-                              >
-                                {member.isActive ? (
-                                  <XCircle className="h-4 w-4 text-red-400" />
-                                ) : (
-                                  <CheckCircle className="h-4 w-4 text-green-400" />
-                                )}
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                title="Cambiar rol"
-                                onClick={() => toggleUserRole(member.id)}
-                                disabled={member.id === user.id}
-                              >
-                                <Crown className={`h-4 w-4 ${member.role === 'admin' ? 'text-yellow-500' : 'text-slate-400'}`} />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                title="Eliminar"
-                                className="text-red-400 hover:text-red-300"
-                                onClick={() => deleteUser(member.id)}
-                                disabled={member.id === user.id}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </CardContent>
-              </Card>
+                          </div>
+                          <span className="text-sm text-slate-400">{member.email}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => toggleUserActive(member.id)}
+                          disabled={member.id === user.id}
+                        >
+                          {member.isActive ? <CheckCircle className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-red-500" />}
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => toggleUserRole(member.id)}
+                          disabled={member.id === user.id}
+                        >
+                          {member.role === 'admin' ? <Crown className="h-4 w-4 text-yellow-500" /> : <User className="h-4 w-4" />}
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => deleteUser(member.id)}
+                          disabled={member.id === user.id}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-400" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
           )}
 
           {/* Vista: Mensajes */}
           {view === 'messages' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Tabs value={messageTab} onValueChange={(v) => setMessageTab(v as 'received' | 'sent')}>
-                  <TabsList className="bg-slate-800">
-                    <TabsTrigger value="received">Recibidos ({messages.length})</TabsTrigger>
-                    <TabsTrigger value="sent">Enviados ({sentMessages.length})</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                <Dialog open={showNewMessage} onOpenChange={setShowNewMessage}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="gap-1" onClick={handleOpenNewMessage}>
-                      <Plus className="h-4 w-4" />Nuevo Mensaje
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-slate-800 border-slate-700">
-                    <DialogHeader>
-                      <DialogTitle>Nuevo Mensaje</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 pt-4">
-                      {/* Dropdown de destinatarios funcional */}
-                      <select
-                        value={newMessageRecipient}
-                        onChange={(e) => setNewMessageRecipient(e.target.value)}
-                        className="w-full p-2 rounded bg-slate-700 border border-slate-600 text-white"
-                      >
-                        <option value="">Seleccionar destinatario...</option>
-                        {allMembers.filter(m => m.id !== user?.id).map((m) => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
-                        ))}
-                      </select>
-                      <Input
-                        placeholder="Asunto"
-                        value={newMessageSubject}
-                        onChange={(e) => setNewMessageSubject(e.target.value)}
-                        className="bg-slate-700 border-slate-600"
-                      />
-                      <Textarea
-                        placeholder="Contenido del mensaje"
-                        value={newMessageContent}
-                        onChange={(e) => setNewMessageContent(e.target.value)}
-                        className="bg-slate-700 border-slate-600 min-h-[60px]"
-                      />
-                      <FileUpload
-                        allowedTypes="all"
-                        maxFiles={5}
-                        onUploadComplete={(files) => setMessageAttachments(prev => [...prev, ...files])}
-                        existingFiles={messageAttachments}
-                        onRemoveExisting={(index) => setMessageAttachments(prev => prev.filter((_, i) => i !== index))}
-                      />
-                      <Button onClick={sendMessage} disabled={!newMessageRecipient || !newMessageContent.trim()}>
-                        Enviar
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Mensajes Privados</h3>
+                <Button size="sm" onClick={handleOpenNewMessage}>
+                  <Plus className="h-4 w-4 mr-2" />Nuevo Mensaje
+                </Button>
               </div>
               
-              <TabsContent value="received" className="mt-0">
-                <div className="space-y-2">
-                  {messages.length === 0 ? (
-                    <Card className="bg-slate-800/50 border-slate-700">
-                      <CardContent className="p-6 text-center text-slate-400">
-                        No tienes mensajes recibidos.
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    messages.map((msg) => {
-                      const isExpanded = expandedMessages.has(msg.id);
-                      const toggleExpand = () => {
-                        const newExpanded = new Set(expandedMessages);
-                        if (newExpanded.has(msg.id)) {
-                          newExpanded.delete(msg.id);
-                        } else {
-                          newExpanded.add(msg.id);
-                          // Marcar como leído al expandir
-                          if (!msg.isRead) markAsRead(msg.id);
-                        }
-                        setExpandedMessages(newExpanded);
-                      };
-                      
-                      return (
-                        <Card 
-                          key={msg.id} 
-                          className={`bg-slate-800/50 border-slate-700 ${!msg.isRead ? 'border-l-4 border-l-yellow-500' : ''}`}
-                        >
-                          <CardContent className="p-4">
-                            {/* Cabecera - siempre visible */}
-                            <div 
-                              className="flex items-center justify-between cursor-pointer"
-                              onClick={toggleExpand}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{msg.subject}</span>
-                                {!msg.isRead && <Badge variant="default" className="text-xs">Nuevo</Badge>}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-slate-400">{msg.sender.name} • {formatDate(msg.createdAt)}</span>
-                                <Button variant="ghost" size="sm">
-                                  {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                </Button>
-                              </div>
-                            </div>
-                            
-                            {/* Contenido expandido */}
-                            {isExpanded && (
-                              <div className="mt-3 pt-3 border-t border-slate-700">
-                                <p className="text-slate-300">{msg.content}</p>
-                                {msg.attachments && msg.attachments.length > 0 && (
-                                  <div className="flex flex-wrap gap-2 mt-2">
-                                    {msg.attachments.map((att) => (
-                                      <a 
-                                        key={att.id} 
-                                        href={att.url} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700 rounded text-sm hover:bg-slate-600"
-                                      >
-                                        📎 {att.name}
-                                      </a>
-                                    ))}
-                                  </div>
-                                )}
-                                <div className="flex gap-2 mt-3">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      loadAllMembers();
-                                      setNewMessageRecipient(msg.sender.id);
-                                      setNewMessageSubject(`Re: ${msg.subject}`);
-                                      setNewMessageContent('');
-                                      setShowNewMessage(true);
-                                    }}
-                                  >
-                                    <Reply className="h-4 w-4 mr-1" />
-                                    Responder
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="text-red-400 hover:text-red-300"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      deleteMessage(msg.id);
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-1" />
-                                    Borrar
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      );
-                    })
-                  )}
-                </div>
-              </TabsContent>
+              {/* Dialog nuevo mensaje */}
+              <Dialog open={showNewMessage} onOpenChange={setShowNewMessage}>
+                <DialogContent className="bg-slate-800 border-slate-700">
+                  <DialogHeader>
+                    <DialogTitle>Nuevo Mensaje</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-4">
+                    <select
+                      value={newMessageRecipient}
+                      onChange={(e) => setNewMessageRecipient(e.target.value)}
+                      className="w-full bg-slate-700 border-slate-600 rounded p-2"
+                    >
+                      <option value="">Seleccionar destinatario...</option>
+                      {allMembers.filter(m => m.id !== user.id).map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                    </select>
+                    <Input
+                      placeholder="Asunto"
+                      value={newMessageSubject}
+                      onChange={(e) => setNewMessageSubject(e.target.value)}
+                      className="bg-slate-700 border-slate-600"
+                    />
+                    <Textarea
+                      placeholder="Mensaje..."
+                      value={newMessageContent}
+                      onChange={(e) => setNewMessageContent(e.target.value)}
+                      className="bg-slate-700 border-slate-600 min-h-[60px]"
+                    />
+                    <div className="mt-2">
+                      <FileUpload
+                        allowedTypes="all"
+                        onUploadComplete={(files) => setMessageAttachments(files)}
+                      />
+                    </div>
+                    <Button onClick={sendMessage} disabled={loading || !newMessageContent.trim() || !newMessageRecipient} className="w-full">
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Enviar
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
               
-              <TabsContent value="sent" className="mt-0">
-                <div className="space-y-2">
-                  {sentMessages.length === 0 ? (
-                    <Card className="bg-slate-800/50 border-slate-700">
-                      <CardContent className="p-6 text-center text-slate-400">
-                        No tienes mensajes enviados.
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    sentMessages.map((msg) => {
-                      const isExpanded = expandedMessages.has(`sent-${msg.id}`);
-                      const toggleExpand = () => {
-                        const key = `sent-${msg.id}`;
-                        const newExpanded = new Set(expandedMessages);
-                        if (newExpanded.has(key)) {
-                          newExpanded.delete(key);
-                        } else {
-                          newExpanded.add(key);
-                        }
-                        setExpandedMessages(newExpanded);
-                      };
-                      
-                      return (
-                        <Card 
-                          key={msg.id} 
-                          className="bg-slate-800/50 border-slate-700"
-                        >
-                          <CardContent className="p-4">
-                            {/* Cabecera - siempre visible */}
-                            <div 
-                              className="flex items-center justify-between cursor-pointer"
-                              onClick={toggleExpand}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{msg.subject}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-slate-400">Para: {msg.receiver.name} • {formatDate(msg.createdAt)}</span>
-                                <Button variant="ghost" size="sm">
-                                  {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                </Button>
-                              </div>
-                            </div>
-                            
-                            {/* Contenido expandido */}
-                            {isExpanded && (
-                              <div className="mt-3 pt-3 border-t border-slate-700">
-                                <p className="text-slate-300">{msg.content}</p>
-                                {msg.attachments && msg.attachments.length > 0 && (
-                                  <div className="flex flex-wrap gap-2 mt-2">
-                                    {msg.attachments.map((att) => (
-                                      <a
-                                        key={att.id}
-                                        href={att.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700 rounded text-sm hover:bg-slate-600"
-                                      >
-                                        📎 {att.name}
-                                      </a>
-                                    ))}
-                                  </div>
-                                )}
-                                <div className="flex gap-2 mt-3">
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="text-red-400 hover:text-red-300"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      deleteMessage(msg.id);
-                                    }}
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-1" />
-                                    Borrar
+              <Tabs value={messageTab} onValueChange={(v) => setMessageTab(v as 'received' | 'sent')}>
+                <TabsList className="bg-slate-800">
+                  <TabsTrigger value="received">Recibidos {unreadCount > 0 && `(${unreadCount})`}</TabsTrigger>
+                  <TabsTrigger value="sent">Enviados</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="received" className="mt-0">
+                  <div className="space-y-2">
+                    {messages.length === 0 ? (
+                      <Card className="bg-slate-800/50 border-slate-700">
+                        <CardContent className="p-6 text-center text-slate-400">
+                          No tienes mensajes recibidos.
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      messages.map((msg) => {
+                        const isExpanded = expandedMessages.has(msg.id);
+                        const toggleExpand = () => {
+                          const newExpanded = new Set(expandedMessages);
+                          if (newExpanded.has(msg.id)) {
+                            newExpanded.delete(msg.id);
+                          } else {
+                            newExpanded.add(msg.id);
+                            if (!msg.isRead) markAsRead(msg.id);
+                          }
+                          setExpandedMessages(newExpanded);
+                        };
+                        
+                        return (
+                          <Card 
+                            key={msg.id} 
+                            className={`bg-slate-800/50 border-slate-700 ${!msg.isRead ? 'border-l-4 border-l-yellow-500' : ''}`}
+                          >
+                            <CardContent className="p-4">
+                              <div 
+                                className="flex items-center justify-between cursor-pointer"
+                                onClick={toggleExpand}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{msg.subject}</span>
+                                  {!msg.isRead && <Badge variant="default" className="text-xs">Nuevo</Badge>}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-slate-400">{msg.sender.name} • {formatDate(msg.createdAt)}</span>
+                                  <Button variant="ghost" size="sm">
+                                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                                   </Button>
                                 </div>
                               </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      );
-                    })
-                  )}
-                </div>
-              </TabsContent>
+                              
+                              {isExpanded && (
+                                <div className="mt-3 pt-3 border-t border-slate-700">
+                                  <p className="text-slate-300">{msg.content}</p>
+                                  {msg.attachments && msg.attachments.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                      {msg.attachments.map((att) => (
+                                        <a 
+                                          key={att.id} 
+                                          href={att.url} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700 rounded text-sm hover:bg-slate-600"
+                                        >
+                                          📎 {att.name}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className="flex gap-2 mt-3">
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        loadAllMembers();
+                                        setNewMessageRecipient(msg.sender.id);
+                                        setNewMessageSubject(`Re: ${msg.subject}`);
+                                        setNewMessageContent('');
+                                        setShowNewMessage(true);
+                                      }}
+                                    >
+                                      <Reply className="h-4 w-4 mr-1" />
+                                      Responder
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      className="text-red-400 hover:text-red-300"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteMessage(msg.id);
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-1" />
+                                      Eliminar
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })
+                    )}
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="sent" className="mt-0">
+                  <div className="space-y-2">
+                    {sentMessages.length === 0 ? (
+                      <Card className="bg-slate-800/50 border-slate-700">
+                        <CardContent className="p-6 text-center text-slate-400">
+                          No tienes mensajes enviados.
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      sentMessages.map((msg) => {
+                        const isExpanded = expandedMessages.has(`sent-${msg.id}`);
+                        const toggleExpand = () => {
+                          const key = `sent-${msg.id}`;
+                          const newExpanded = new Set(expandedMessages);
+                          if (newExpanded.has(key)) {
+                            newExpanded.delete(key);
+                          } else {
+                            newExpanded.add(key);
+                          }
+                          setExpandedMessages(newExpanded);
+                        };
+                        
+                        return (
+                          <Card 
+                            key={msg.id} 
+                            className="bg-slate-800/50 border-slate-700"
+                          >
+                            <CardContent className="p-4">
+                              <div 
+                                className="flex items-center justify-between cursor-pointer"
+                                onClick={toggleExpand}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{msg.subject}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-slate-400">Para: {msg.receiver.name} • {formatDate(msg.createdAt)}</span>
+                                  <Button variant="ghost" size="sm">
+                                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                  </Button>
+                                </div>
+                              </div>
+                              
+                              {isExpanded && (
+                                <div className="mt-3 pt-3 border-t border-slate-700">
+                                  <p className="text-slate-300">{msg.content}</p>
+                                  {msg.attachments && msg.attachments.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                      {msg.attachments.map((att) => (
+                                        <a
+                                          key={att.id}
+                                          href={att.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700 rounded text-sm hover:bg-slate-600"
+                                        >
+                                          📎 {att.name}
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className="flex gap-2 mt-3">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-red-400 hover:text-red-300"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteMessage(msg.id);
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-1" />
+                                      Eliminar
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
             </div>
           )}
         </main>
@@ -2196,69 +2024,14 @@ Entra en: https://lomejordeespaña.es
               className="bg-slate-700 border-slate-600"
             />
             <Textarea
-              placeholder="Descripción (opcional)"
+              placeholder="Descripción"
               value={editTopicDesc}
               onChange={(e) => setEditTopicDesc(e.target.value)}
               className="bg-slate-700 border-slate-600"
             />
-            <Button onClick={editTopic} disabled={loading || !editTopicName.trim()}>
+            <Button onClick={editTopic} disabled={loading} className="w-full">
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Guardar
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog: Editar Subtema */}
-      <Dialog open={!!editingSubtopic} onOpenChange={() => setEditingSubtopic(null)}>
-        <DialogContent className="bg-slate-800 border-slate-700">
-          <DialogHeader>
-            <DialogTitle>Editar Subtema</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <Input
-              placeholder="Nombre del subtema"
-              value={editSubtopicName}
-              onChange={(e) => setEditSubtopicName(e.target.value)}
-              className="bg-slate-700 border-slate-600"
-            />
-            <Button onClick={editSubtopic} disabled={loading || !editSubtopicName.trim()}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Guardar
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog: Responder */}
-      <Dialog open={!!replyingTo} onOpenChange={() => { setReplyingTo(null); setReplyContent(''); setPostAttachments([]); }}>
-        <DialogContent className="bg-slate-800 border-slate-700">
-          <DialogHeader>
-            <DialogTitle>Responder a {replyingTo?.author.name}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            {replyingTo && (
-              <div className="bg-slate-700/50 p-3 rounded text-sm">
-                <p className="text-slate-400 mb-1">Original:</p>
-                <p className="text-slate-200">{replyingTo.content.substring(0, 200)}{replyingTo.content.length > 200 ? '...' : ''}</p>
-              </div>
-            )}
-            <Textarea
-              placeholder="Escribe tu respuesta..."
-              value={replyContent}
-              onChange={(e) => setReplyContent(e.target.value)}
-              className="bg-slate-700 border-slate-600 min-h-[100px]"
-            />
-            <FileUpload
-              allowedTypes="all"
-              maxFiles={5}
-              onUploadComplete={(files) => setPostAttachments(prev => [...prev, ...files])}
-              existingFiles={postAttachments}
-              onRemoveExisting={(index) => setPostAttachments(prev => prev.filter((_, i) => i !== index))}
-            />
-            <Button onClick={createReply} disabled={loading || !replyContent.trim()}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Responder
+              Guardar Cambios
             </Button>
           </div>
         </DialogContent>
@@ -2271,104 +2044,39 @@ Entra en: https://lomejordeespaña.es
             <DialogTitle>Mi Perfil</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-4">
-            {newKeyGenerated ? (
-              <div className="space-y-4 text-center">
-                <p className="text-green-400">¡Nueva clave generada!</p>
-                <div className="bg-slate-700 p-4 rounded">
-                  <p className="text-sm text-slate-400 mb-2">Su nueva clave de acceso es:</p>
-                  <code className="text-xl font-bold">{newKeyGenerated}</code>
-                </div>
-                <p className="text-yellow-400 text-sm">¡Guarde esta clave en un lugar seguro!</p>
-                <Button onClick={() => { setNewKeyGenerated(''); setShowProfile(false); }}>
-                  Entendido
-                </Button>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <label className="text-sm text-slate-400">Nombre</label>
-                  <Input
-                    value={profileName}
-                    onChange={(e) => setProfileName(e.target.value)}
-                    className="bg-slate-700 border-slate-600"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm text-slate-400">Email</label>
-                  <Input
-                    value={profileEmail}
-                    onChange={(e) => setProfileEmail(e.target.value)}
-                    className="bg-slate-700 border-slate-600"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={() => updateProfile(false)} disabled={loading}>
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    Guardar
-                  </Button>
-                  <Button variant="outline" onClick={() => updateProfile(true)} disabled={loading}>
-                    <Key className="h-4 w-4 mr-2" />
-                    Nueva Clave
-                  </Button>
-                </div>
-                {user.role !== 'admin' && (
-                  <Button 
-                    variant="destructive" 
-                    className="w-full mt-4"
-                    onClick={deleteAccount}
-                  >
-                    <UserX className="h-4 w-4 mr-2" />
-                    Darse de Baja
-                  </Button>
-                )}
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog: Clave de invitación */}
-      <Dialog open={!!invitedUserKey} onOpenChange={() => setInvitedUserKey(null)}>
-        <DialogContent className="bg-slate-800 border-slate-700 max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-green-400">¡Usuario invitado!</DialogTitle>
-            <DialogDescription>
-              Comparte esta información con el nuevo miembro
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="bg-slate-700/50 p-4 rounded space-y-2">
-              <p className="text-sm"><span className="text-slate-400">Nombre:</span> {invitedUserKey?.name}</p>
-              <p className="text-sm"><span className="text-slate-400">Email:</span> {invitedUserKey?.email}</p>
-              <p className="text-sm"><span className="text-slate-400">Clave de acceso:</span></p>
-              <div className="flex items-center gap-2">
-                <code className="text-lg font-bold text-yellow-500">{invitedUserKey?.accessKey}</code>
-                <Button 
-                  size="sm" 
-                  variant="ghost"
-                  onClick={() => invitedUserKey && copyToClipboard(invitedUserKey.accessKey)}
-                >
-                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
-            
-            <div className="bg-slate-700/30 p-4 rounded space-y-2">
-              <p className="text-sm text-slate-400">Mensaje para compartir:</p>
-              <Textarea
-                value={getInvitationMessage()}
-                readOnly
-                className="bg-slate-700 border-slate-600 min-h-[120px] text-sm"
+            <div>
+              <label className="text-sm text-slate-400">Nombre</label>
+              <Input
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                className="bg-slate-700 border-slate-600 mt-1"
               />
-              <Button 
-                size="sm" 
-                className="w-full"
-                onClick={() => copyToClipboard(getInvitationMessage())}
-              >
-                {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
-                Copiar mensaje
-              </Button>
             </div>
+            <div>
+              <label className="text-sm text-slate-400">Email</label>
+              <Input
+                value={profileEmail}
+                onChange={(e) => setProfileEmail(e.target.value)}
+                className="bg-slate-700 border-slate-600 mt-1"
+              />
+            </div>
+            <Button onClick={() => updateProfile(false)} disabled={loading} className="w-full">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Guardar Cambios
+            </Button>
+            <Button onClick={() => updateProfile(true)} variant="outline" className="w-full">
+              Generar Nueva Clave de Acceso
+            </Button>
+            {newKeyGenerated && (
+              <div className="bg-green-900/30 border border-green-500 rounded p-3">
+                <p className="text-sm text-green-400 mb-1">Nueva clave generada:</p>
+                <code className="text-yellow-400">{newKeyGenerated}</code>
+                <p className="text-xs text-slate-400 mt-2">¡Guárdala en un lugar seguro!</p>
+              </div>
+            )}
+            <Button onClick={deleteAccount} variant="destructive" className="w-full">
+              Darse de Baja
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
