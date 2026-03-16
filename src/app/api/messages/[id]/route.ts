@@ -106,13 +106,18 @@ export async function DELETE(
       )
     }
 
-    // Solo el receptor puede eliminar
-    if (message.receiverId !== userId) {
+    // Tanto el emisor como el receptor pueden eliminar
+    if (message.receiverId !== userId && message.senderId !== userId) {
       return NextResponse.json(
         { error: 'No autorizado' },
         { status: 403 }
       )
     }
+
+    // Eliminar archivos adjuntos primero
+    await db.fileAttachment.deleteMany({
+      where: { messageId: id }
+    })
 
     await db.message.delete({
       where: { id },
