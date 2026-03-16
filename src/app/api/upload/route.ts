@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put, del } from '@vercel/blob';
-import { prisma } from '@/lib/db';
+import { db } from '@/lib/db';
 
 // Subir archivo
 export async function POST(request: NextRequest) {
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
         name: file.name,
         size: file.size,
         type: file.type,
-        key: blob.url, // Usamos la URL como key para Vercel Blob
+        key: blob.url,
       }
     });
   } catch (error) {
@@ -93,7 +93,6 @@ export async function POST(request: NextRequest) {
 // Eliminar archivo
 export async function DELETE(request: NextRequest) {
   try {
-    // Verificar autenticación
     const sessionResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
       ? `https://${process.env.VERCEL_URL}` 
       : 'http://localhost:3000'}/api/auth/session`, {
@@ -111,7 +110,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'URL requerida' }, { status: 400 });
     }
 
-    // Eliminar de Vercel Blob
     await del(url);
 
     return NextResponse.json({ success: true });
