@@ -116,7 +116,7 @@ export async function DELETE(
 
     // Eliminar archivos adjuntos primero
     await db.fileAttachment.deleteMany({
-      where: { messageId: id }
+      where: { messageId: id },
     })
 
     await db.message.delete({
