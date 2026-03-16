@@ -296,27 +296,46 @@ export default function ForumPage() {
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       if (event.state && event.state.view) {
-        setView(event.state.view);
-        if (event.state.view === 'forum') {
+        const newView = event.state.view;
+        setView(newView);
+        
+        // Actualizar selectedTopic y selectedSubtopic según el estado
+        if (newView === 'forum') {
           setSelectedTopic(null);
           setSelectedSubtopic(null);
+        } else if (newView === 'topic' && event.state.topicId) {
+          const topic = topics.find(t => t.id === event.state.topicId);
+          if (topic) setSelectedTopic(topic);
+          setSelectedSubtopic(null);
+        } else if (newView === 'subtopic' && event.state.subtopicId) {
+          // Buscar el subtopic en los topics
+          for (const t of topics) {
+            const st = t.subtopics.find(s => s.id === event.state.subtopicId);
+            if (st) {
+              setSelectedTopic(t);
+              setSelectedSubtopic(st);
+              break;
+            }
+          }
         }
       } else {
         // Si no hay estado, volver al foro
         if (user) {
           setView('forum');
+          setSelectedTopic(null);
+          setSelectedSubtopic(null);
+          // Asegurar que hay un estado en el historial
+          window.history.pushState({ view: 'forum' }, '', window.location.pathname);
         }
       }
     };
     
     window.addEventListener('popstate', handlePopState);
-    // Inicializar el historial con el estado actual
-    window.history.replaceState({ view: 'forum' }, '');
     
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [user]);
+  }, [user, topics]);
 
   const handleInit = async () => {
     if (!confirm('¿Desea inicializar el sistema? Se creará una cuenta de administrador.')) return;
@@ -754,6 +773,19 @@ export default function ForumPage() {
     }
   };
 
+  const deleteMessage = async (id: string) => {
+    if (!confirm('¿Eliminar este mensaje?')) return;
+    try {
+      await fetch(`/api/messages/${id}?userId=${user?.id}`, {
+        method: 'DELETE'
+      });
+      loadMessages();
+      loadSentMessages();
+    } catch (e) {
+      console.error('Error deleting message:', e);
+    }
+  };
+
   const inviteUser = async () => {
     if (!newUserName.trim() || !newUserEmail.trim()) return;
     setLoading(true);
@@ -948,6 +980,9 @@ Entra en: https://lomejordeespaña.es
             <CardTitle className="text-3xl font-bold bg-gradient-to-r from-red-500 via-yellow-500 to-red-500 bg-clip-text text-transparent">
               Lo Mejor De España
             </CardTitle>
+            <CardDescription className="text-slate-300 text-lg mt-2">
+              Foro Privado
+            </CardDescription>
           </CardHeader>
           
           <CardContent>
@@ -1464,7 +1499,7 @@ Entra en: https://lomejordeespaña.es
                       placeholder="Escribe tu publicación..."
                       value={newPostContent}
                       onChange={(e) => setNewPostContent(e.target.value)}
-                      className="bg-slate-700 border-slate-600 min-h-[100px]"
+                      className="bg-slate-700 border-slate-600 min-h-[60px]"
                     />
                     <div className="mt-2">
                       <FileUpload
@@ -1935,7 +1970,7 @@ Entra en: https://lomejordeespaña.es
                         placeholder="Contenido del mensaje"
                         value={newMessageContent}
                         onChange={(e) => setNewMessageContent(e.target.value)}
-                        className="bg-slate-700 border-slate-600 min-h-[100px]"
+                        className="bg-slate-700 border-slate-600 min-h-[60px]"
                       />
                       <FileUpload
                         allowedTypes="all"
@@ -2018,8 +2053,8 @@ Entra en: https://lomejordeespaña.es
                                   </div>
                                 )}
                                 <div className="flex gap-2 mt-3">
-                                  <Button 
-                                    size="sm" 
+                                  <Button
+                                    size="sm"
                                     variant="outline"
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -2032,6 +2067,18 @@ Entra en: https://lomejordeespaña.es
                                   >
                                     <Reply className="h-4 w-4 mr-1" />
                                     Responder
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-red-400 hover:text-red-300"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteMessage(msg.id);
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    Borrar
                                   </Button>
                                 </div>
                               </div>
@@ -2095,10 +2142,10 @@ Entra en: https://lomejordeespaña.es
                                 {msg.attachments && msg.attachments.length > 0 && (
                                   <div className="flex flex-wrap gap-2 mt-2">
                                     {msg.attachments.map((att) => (
-                                      <a 
-                                        key={att.id} 
-                                        href={att.url} 
-                                        target="_blank" 
+                                      <a
+                                        key={att.id}
+                                        href={att.url}
+                                        target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center gap-1 px-2 py-1 bg-slate-700 rounded text-sm hover:bg-slate-600"
                                       >
@@ -2107,6 +2154,20 @@ Entra en: https://lomejordeespaña.es
                                     ))}
                                   </div>
                                 )}
+                                <div className="flex gap-2 mt-3">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-red-400 hover:text-red-300"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteMessage(msg.id);
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    Borrar
+                                  </Button>
+                                </div>
                               </div>
                             )}
                           </CardContent>
