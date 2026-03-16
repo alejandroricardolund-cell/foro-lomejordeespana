@@ -36,4 +36,3 @@ export default function RootLayout({
     </html>
   );
 }
-\n<!-- Updated: Sun Mar 15 22:42:11 UTC 2026 -->
