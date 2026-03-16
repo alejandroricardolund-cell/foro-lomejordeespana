@@ -947,7 +947,7 @@ Entra en: https://lomejordeespaña.es
               </svg>
             </div>
             <CardTitle className="text-3xl font-bold bg-gradient-to-r from-red-500 via-yellow-500 to-red-500 bg-clip-text text-transparent">
-              Lo Mejor De España
+              España
             </CardTitle>
           </CardHeader>
           
