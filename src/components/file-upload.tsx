@@ -44,7 +44,6 @@ export function FileUpload({
     const formData = new FormData();
     formData.append('file', file);
     
-    // Determinar carpeta según tipo
     let folder = 'forum';
     if (file.type.startsWith('image/')) folder = 'images';
     else if (file.type.startsWith('audio/')) folder = 'audio';
@@ -58,12 +57,25 @@ export function FileUpload({
       body: formData,
     });
 
+    let data;
+    const responseText = await response.text();
+    
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      if (responseText.includes('Request Entity Too Large') || response.status === 413) {
+        throw new Error('Archivo demasiado grande. Intenta con un archivo más pequeño.');
+      }
+      if (responseText.includes('timeout') || response.status === 504) {
+        throw new Error('Tiempo de espera agotado. Intenta con un archivo más pequeño.');
+      }
+      throw new Error('Error del servidor. El archivo puede ser demasiado grande.');
+    }
+
     if (!response.ok) {
-      const data = await response.json();
       throw new Error(data.error || 'Error al subir archivo');
     }
 
-    const data = await response.json();
     return data.file;
   };
 
@@ -105,7 +117,6 @@ export function FileUpload({
         setTimeout(() => setProgress(0), 1000);
       }
 
-      // Reset input
       e.target.value = '';
     },
     [maxFiles, existingFiles.length, uploadedFiles.length, onUploadComplete, onUploadError]
@@ -140,9 +151,9 @@ export function FileUpload({
       case 'video':
         return 'video/*';
       case 'documents':
-        return '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx';
+        return '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv,.note,.pages,.numbers,.key,.rtf,.odt,.ods,.odp';
       default:
-        return 'image/*,audio/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx';
+        return 'image/*,audio/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv,.note,.pages,.numbers,.key,.rtf,.odt,.ods,.odp,.zip,.rar';
     }
   };
 
@@ -155,9 +166,9 @@ export function FileUpload({
       case 'video':
         return 'Video (MP4, WebM, MOV) - máx. 50MB';
       case 'documents':
-        return 'Documentos (PDF, Word, PowerPoint, Excel) - máx. 20MB';
+        return 'Documentos (PDF, Word, PowerPoint, Excel, Notas, TXT, etc.) - máx. 20MB';
       default:
-        return 'Imágenes, audio, video o documentos';
+        return 'Imágenes, audio, video, documentos o notas';
     }
   };
 
@@ -165,7 +176,6 @@ export function FileUpload({
 
   return (
     <div className="space-y-3">
-      {/* Área de subida */}
       <div className="border-2 border-dashed border-slate-600 rounded-lg p-4 text-center hover:border-yellow-500 transition-colors">
         <input
           type="file"
@@ -203,7 +213,6 @@ export function FileUpload({
         </label>
       </div>
 
-      {/* Barra de progreso */}
       {uploading && progress > 0 && (
         <div className="space-y-1">
           <Progress value={progress} className="h-2 bg-slate-700" />
@@ -211,7 +220,6 @@ export function FileUpload({
         </div>
       )}
 
-      {/* Error */}
       {error && (
         <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 p-2 rounded">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -219,7 +227,6 @@ export function FileUpload({
         </div>
       )}
 
-      {/* Archivos existentes */}
       {existingFiles.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-slate-400">Archivos adjuntos:</p>
@@ -246,7 +253,6 @@ export function FileUpload({
         </div>
       )}
 
-      {/* Archivos subidos */}
       {uploadedFiles.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-green-400 flex items-center gap-1">
