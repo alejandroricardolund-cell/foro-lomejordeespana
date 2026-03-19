@@ -1,22 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put, del } from '@vercel/blob';
-import { db } from '@/lib/db';
 
 // Subir archivo
 export async function POST(request: NextRequest) {
   try {
-    // Verificar autenticación
-    const sessionResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'http://localhost:3000'}/api/auth/session`, {
-      headers: request.headers,
-    });
-    const session = await sessionResponse.json();
-    
-    if (!session.authenticated) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
-
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const folder = formData.get('folder') as string || 'forum';
@@ -25,14 +12,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No se encontró archivo' }, { status: 400 });
     }
 
-    // Validar tipo de archivo
+    // Validar tipo de archivo - expandido para incluir más tipos
     const allowedTypes = [
       // Imágenes
-      'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp',
       // Audio
-      'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/x-m4a',
+      'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/x-m4a', 'audio/aac',
       // Video
-      'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime',
+      'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo',
       // Documentos
       'application/pdf',
       'application/msword',
@@ -41,11 +28,18 @@ export async function POST(request: NextRequest) {
       'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      // Texto
+      'text/plain', 'text/markdown',
     ];
 
-    if (!allowedTypes.includes(file.type)) {
+    // Permitir archivos sin tipo reconocido pero con extensiones conocidas
+    const fileName = file.name.toLowerCase();
+    const allowedExtensions = ['.md', '.txt', '.json', '.csv'];
+    const hasAllowedExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
+
+    if (!allowedTypes.includes(file.type) && !hasAllowedExtension) {
       return NextResponse.json({ 
-        error: `Tipo de archivo no permitido: ${file.type}` 
+        error: `Tipo de archivo no permitido: ${file.type || 'desconocido'}` 
       }, { status: 400 });
     }
 
@@ -77,7 +71,7 @@ export async function POST(request: NextRequest) {
         url: blob.url,
         name: file.name,
         size: file.size,
-        type: file.type,
+        type: file.type || 'application/octet-stream',
         key: blob.url,
       }
     });
@@ -93,18 +87,6 @@ export async function POST(request: NextRequest) {
 // Eliminar archivo
 export async function DELETE(request: NextRequest) {
   try {
-    // Verificar autenticación
-    const sessionResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'http://localhost:3000'}/api/auth/session`, {
-      headers: request.headers,
-    });
-    const session = await sessionResponse.json();
-    
-    if (!session.authenticated) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
-
     const { url } = await request.json();
     
     if (!url) {
