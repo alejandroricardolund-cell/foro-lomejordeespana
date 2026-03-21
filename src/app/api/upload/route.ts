@@ -3,13 +3,9 @@ import { put } from '@vercel/blob';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('Upload request received');
-    
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const folder = (formData.get('folder') as string) || 'forum';
-    
-    console.log('File:', file?.name, file?.type, file?.size);
     
     if (!file) {
       return NextResponse.json({ error: 'No se encontró archivo' }, { status: 400 });
@@ -20,13 +16,9 @@ export async function POST(request: NextRequest) {
     const ext = file.name.split('.').pop() || 'bin';
     const filename = `${folder}/${timestamp}-${randomStr}.${ext}`;
 
-    console.log('Uploading to:', filename);
-
     const blob = await put(filename, file, {
       access: 'public',
     });
-
-    console.log('Upload successful:', blob.url);
 
     return NextResponse.json({
       success: true,
@@ -40,11 +32,9 @@ export async function POST(request: NextRequest) {
     });
     
   } catch (error) {
-    console.error('Upload error:', error);
     return NextResponse.json({ 
       error: 'Error al subir archivo',
-      details: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack?.substring(0, 500) : 'No stack'
+      details: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
 }
