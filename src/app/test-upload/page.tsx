@@ -1,58 +1,56 @@
 'use client';
 
 import { useState } from 'react';
+import { FileUpload, UploadedFile } from '@/components/file-upload';
 
 export default function TestUploadPage() {
   const [result, setResult] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+  const [files, setFiles] = useState<UploadedFile[]>([]);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleComplete = (uploaded: UploadedFile[]) => {
+    setFiles(prev => [...prev, ...uploaded]);
+    setResult('Subido correctamente:\n' + JSON.stringify(uploaded, null, 2));
+  };
 
-    setLoading(true);
-    setResult('Subiendo...');
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('folder', 'forum');
-
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      });
-      const data = await res.json();
-      setResult(JSON.stringify(data, null, 2));
-    } catch (err: any) {
-      setResult('Error: ' + err.message);
-    }
-    setLoading(false);
+  const handleError = (err: Error) => {
+    setResult('Error: ' + err.message);
   };
 
   return (
     <div style={{ padding: '40px', maxWidth: '600px', margin: '0 auto' }}>
-      <h1>Test de Upload (API real)</h1>
-      <p>Selecciona una imagen para probar:</p>
-      <input 
-        type="file" 
-        accept="image/*" 
-        onChange={handleUpload}
-        disabled={loading}
-        style={{ marginBottom: '20px', display: 'block' }}
+      <h1>Test FileUpload Component</h1>
+      
+      <FileUpload 
+        onUploadComplete={handleComplete}
+        onUploadError={handleError}
+        allowedTypes="all"
+        maxFiles={3}
       />
+
       <pre style={{ 
         background: '#1a1a1a', 
         color: '#fff', 
         padding: '20px', 
         borderRadius: '8px',
-        overflow: 'auto',
-        minHeight: '100px',
+        marginTop: '20px',
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-all'
       }}>
         {result || 'Resultado aparecerá aquí...'}
       </pre>
+
+      {files.length > 0 && (
+        <div style={{ marginTop: '20px' }}>
+          <h3>Archivos subidos:</h3>
+          {files.map((f, i) => (
+            <div key={i} style={{ marginBottom: '10px' }}>
+              <a href={f.url} target="_blank" rel="noreferrer" style={{ color: '#60a5fa' }}>
+                {f.name}
+              </a>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
