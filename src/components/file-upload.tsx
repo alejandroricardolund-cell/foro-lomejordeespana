@@ -43,7 +43,7 @@ export function FileUpload({
 
     let response;
     try {
-      response = await fetch('/api/upload', {
+      response = await fetch('/api/test-direct-upload', {
         method: 'POST',
         body: formData,
       });
