@@ -41,12 +41,22 @@ export function FileUpload({
     formData.append('file', file);
     formData.append('folder', file.type.startsWith('image/') ? 'images' : 'forum');
 
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData,
-    });
+    let response;
+    try {
+      response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+    } catch (fetchError: any) {
+      throw new Error('Error de red: ' + fetchError.message);
+    }
 
-    const responseText = await response.text();
+    let responseText;
+    try {
+      responseText = await response.text();
+    } catch (textError: any) {
+      throw new Error('Error leyendo respuesta: ' + textError.message);
+    }
     
     if (!response.ok) {
       let errorMsg = 'Error al subir archivo';
@@ -54,12 +64,22 @@ export function FileUpload({
         const data = JSON.parse(responseText);
         errorMsg = data.error || data.details || JSON.stringify(data);
       } catch {
-        errorMsg = responseText.substring(0, 100) || `Error ${response.status}`;
+        errorMsg = responseText.substring(0, 200) || `Error HTTP ${response.status}`;
       }
       throw new Error(errorMsg);
     }
 
-    const data = JSON.parse(responseText);
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      throw new Error('Respuesta inválida del servidor: ' + responseText.substring(0, 100));
+    }
+    
+    if (!data.file) {
+      throw new Error('No se recibió información del archivo: ' + JSON.stringify(data));
+    }
+    
     return data.file;
   };
 
