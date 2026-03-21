@@ -48,7 +48,7 @@ export function FileUpload({
     if (file.type.startsWith('image/')) folder = 'images';
     else if (file.type.startsWith('audio/')) folder = 'audio';
     else if (file.type.startsWith('video/')) folder = 'videos';
-    else if (file.type.includes('pdf') || file.type.includes('document') || file.type.includes('presentation')) folder = 'documents';
+    else if (file.type.includes('pdf') || file.type.includes('document')) folder = 'documents';
     
     formData.append('folder', folder);
 
@@ -57,25 +57,18 @@ export function FileUpload({
       body: formData,
     });
 
-    let data;
-    const responseText = await response.text();
-    
-    try {
-      data = JSON.parse(responseText);
-    } catch {
-      if (responseText.includes('Request Entity Too Large') || response.status === 413) {
-        throw new Error('Archivo demasiado grande. Intenta con un archivo más pequeño.');
-      }
-      if (responseText.includes('timeout') || response.status === 504) {
-        throw new Error('Tiempo de espera agotado. Intenta con un archivo más pequeño.');
-      }
-      throw new Error('Error del servidor. El archivo puede ser demasiado grande.');
-    }
-
     if (!response.ok) {
-      throw new Error(data.error || 'Error al subir archivo');
+      let errorMsg = 'Error al subir archivo';
+      try {
+        const data = await response.json();
+        errorMsg = data.error || data.details || errorMsg;
+      } catch {
+        errorMsg = `Error ${response.status}`;
+      }
+      throw new Error(errorMsg);
     }
 
+    const data = await response.json();
     return data.file;
   };
 
@@ -131,8 +124,6 @@ export function FileUpload({
     if (type.startsWith('audio/')) return <Music className="h-4 w-4 text-purple-400" />;
     if (type.startsWith('video/')) return <Video className="h-4 w-4 text-red-400" />;
     if (type.includes('pdf')) return <FileText className="h-4 w-4 text-red-500" />;
-    if (type.includes('presentation') || type.includes('powerpoint')) return <FileText className="h-4 w-4 text-orange-400" />;
-    if (type.includes('document') || type.includes('word')) return <FileText className="h-4 w-4 text-blue-500" />;
     return <File className="h-4 w-4 text-slate-400" />;
   };
 
@@ -143,33 +134,11 @@ export function FileUpload({
   };
 
   const getAcceptTypes = () => {
-    switch (allowedTypes) {
-      case 'images':
-        return 'image/*';
-      case 'audio':
-        return 'audio/*';
-      case 'video':
-        return 'video/*';
-      case 'documents':
-        return '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv,.note,.pages,.numbers,.key,.rtf,.odt,.ods,.odp';
-      default:
-        return 'image/*,audio/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv,.note,.pages,.numbers,.key,.rtf,.odt,.ods,.odp,.zip,.rar';
-    }
-  };
-
-  const getTypeLabel = () => {
-    switch (allowedTypes) {
-      case 'images':
-        return 'Imágenes (JPG, PNG, GIF, WebP) - máx. 20MB';
-      case 'audio':
-        return 'Audio (MP3, WAV, OGG) - máx. 20MB';
-      case 'video':
-        return 'Video (MP4, WebM, MOV) - máx. 50MB';
-      case 'documents':
-        return 'Documentos (PDF, Word, PowerPoint, Excel, Notas, TXT, etc.) - máx. 20MB';
-      default:
-        return 'Imágenes, audio, video, documentos o notas';
-    }
+    if (allowedTypes === 'images') return 'image/*';
+    if (allowedTypes === 'audio') return 'audio/*';
+    if (allowedTypes === 'video') return 'video/*';
+    if (allowedTypes === 'documents') return '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv';
+    return 'image/*,audio/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv,.zip';
   };
 
   const totalFiles = existingFiles.length + uploadedFiles.length;
@@ -198,18 +167,9 @@ export function FileUpload({
             <Upload className="h-8 w-8 text-slate-400" />
           )}
           <span className="text-sm text-slate-400">
-            {uploading
-              ? 'Subiendo...'
-              : totalFiles >= maxFiles
-              ? 'Límite alcanzado'
-              : 'Haz clic para subir archivos'}
+            {uploading ? 'Subiendo...' : totalFiles >= maxFiles ? 'Límite alcanzado' : 'Haz clic para subir archivos'}
           </span>
-          <span className="text-xs text-slate-500">
-            {getTypeLabel()}
-          </span>
-          <span className="text-xs text-slate-500">
-            {totalFiles}/{maxFiles} archivos
-          </span>
+          <span className="text-xs text-slate-500">{totalFiles}/{maxFiles} archivos</span>
         </label>
       </div>
 
@@ -229,22 +189,13 @@ export function FileUpload({
 
       {existingFiles.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs text-slate-400">Archivos adjuntos:</p>
           {existingFiles.map((file, index) => (
-            <div
-              key={`existing-${index}`}
-              className="flex items-center gap-2 p-2 bg-slate-700/50 rounded-lg"
-            >
+            <div key={`existing-${index}`} className="flex items-center gap-2 p-2 bg-slate-700/50 rounded-lg">
               {getFileIcon(file.type)}
-              <span className="text-sm flex-1 truncate text-slate-200">{file.name}</span>
+              <span className="text-sm flex-1 truncate">{file.name}</span>
               <span className="text-xs text-slate-400">{formatSize(file.size)}</span>
               {onRemoveExisting && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRemoveExisting(index)}
-                  className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/20"
-                >
+                <Button variant="ghost" size="sm" onClick={() => onRemoveExisting(index)} className="h-6 w-6 p-0 text-red-400">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
@@ -260,20 +211,12 @@ export function FileUpload({
             Subidos ({uploadedFiles.length}):
           </p>
           {uploadedFiles.map((file, index) => (
-            <div
-              key={file.key}
-              className="flex items-center gap-2 p-2 bg-green-900/20 border border-green-800/30 rounded-lg"
-            >
+            <div key={file.key} className="flex items-center gap-2 p-2 bg-green-900/20 border border-green-800/30 rounded-lg">
               <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
               {getFileIcon(file.type)}
-              <span className="text-sm flex-1 truncate text-slate-200">{file.name}</span>
+              <span className="text-sm flex-1 truncate">{file.name}</span>
               <span className="text-xs text-slate-400">{formatSize(file.size)}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => removeFile(index)}
-                className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/20"
-              >
+              <Button variant="ghost" size="sm" onClick={() => removeFile(index)} className="h-6 w-6 p-0 text-red-400">
                 <X className="h-4 w-4" />
               </Button>
             </div>
