@@ -1,12 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { 
-  Upload, X, File, Image, Music, FileText, Loader2, 
-  CheckCircle, AlertCircle, Trash2, Video 
-} from 'lucide-react';
+import { Upload, X, File, Image, Music, Loader2, CheckCircle, AlertCircle, Trash2, Video } from 'lucide-react';
 
 export interface UploadedFile {
   url: string;
@@ -36,21 +32,13 @@ export function FileUpload({
   onRemoveExisting,
 }: FileUploadProps) {
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const uploadFile = async (file: File): Promise<UploadedFile> => {
     const formData = new FormData();
     formData.append('file', file);
-    
-    let folder = 'forum';
-    if (file.type.startsWith('image/')) folder = 'images';
-    else if (file.type.startsWith('audio/')) folder = 'audio';
-    else if (file.type.startsWith('video/')) folder = 'videos';
-    else if (file.type.includes('pdf') || file.type.includes('document')) folder = 'documents';
-    
-    formData.append('folder', folder);
+    formData.append('folder', file.type.startsWith('image/') ? 'images' : 'forum');
 
     const response = await fetch('/api/upload', {
       method: 'POST',
@@ -72,73 +60,61 @@ export function FileUpload({
     return data.file;
   };
 
-  const handleFileChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files;
-      if (!files || files.length === 0) return;
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-      const totalFiles = existingFiles.length + uploadedFiles.length + files.length;
-      if (totalFiles > maxFiles) {
-        setError(`Máximo ${maxFiles} archivos permitidos`);
-        return;
+    const totalFiles = existingFiles.length + uploadedFiles.length + files.length;
+    if (totalFiles > maxFiles) {
+      setError(`Máximo ${maxFiles} archivos`);
+      return;
+    }
+
+    setError(null);
+    setUploading(true);
+
+    const uploadedResults: UploadedFile[] = [];
+
+    try {
+      for (const file of Array.from(files)) {
+        const result = await uploadFile(file);
+        uploadedResults.push(result);
       }
 
-      setError(null);
-      setUploading(true);
-      setProgress(0);
+      setUploadedFiles(prev => [...prev, ...uploadedResults]);
+      onUploadComplete(uploadedResults);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al subir';
+      setError(msg);
+      onUploadError?.(err instanceof Error ? err : new Error(msg));
+    } finally {
+      setUploading(false);
+    }
 
-      const uploadedResults: UploadedFile[] = [];
-      const totalSize = Array.from(files).reduce((acc, f) => acc + f.size, 0);
-      let uploadedSize = 0;
-
-      try {
-        for (const file of Array.from(files)) {
-          const result = await uploadFile(file);
-          uploadedResults.push(result);
-          uploadedSize += file.size;
-          setProgress(Math.round((uploadedSize / totalSize) * 100));
-        }
-
-        setUploadedFiles((prev) => [...prev, ...uploadedResults]);
-        onUploadComplete(uploadedResults);
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Error al subir archivos';
-        setError(errorMsg);
-        onUploadError?.(err instanceof Error ? err : new Error(errorMsg));
-      } finally {
-        setUploading(false);
-        setTimeout(() => setProgress(0), 1000);
-      }
-
-      e.target.value = '';
-    },
-    [maxFiles, existingFiles.length, uploadedFiles.length, onUploadComplete, onUploadError]
-  );
+    e.target.value = '';
+  };
 
   const removeFile = (index: number) => {
-    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const getFileIcon = (type: string) => {
-    if (type.startsWith('image/')) return <Image className="h-4 w-4 text-blue-400" />;
-    if (type.startsWith('audio/')) return <Music className="h-4 w-4 text-purple-400" />;
-    if (type.startsWith('video/')) return <Video className="h-4 w-4 text-red-400" />;
-    if (type.includes('pdf')) return <FileText className="h-4 w-4 text-red-500" />;
-    return <File className="h-4 w-4 text-slate-400" />;
-  };
-
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const getAcceptTypes = () => {
     if (allowedTypes === 'images') return 'image/*';
     if (allowedTypes === 'audio') return 'audio/*';
     if (allowedTypes === 'video') return 'video/*';
-    if (allowedTypes === 'documents') return '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv';
-    return 'image/*,audio/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv,.zip';
+    return 'image/*,audio/*,video/*,.pdf,.doc,.docx,.txt,.md';
+  };
+
+  const getFileIcon = (type: string) => {
+    if (type.startsWith('image/')) return <Image className="h-4 w-4 text-blue-400" />;
+    if (type.startsWith('audio/')) return <Music className="h-4 w-4 text-purple-400" />;
+    if (type.startsWith('video/')) return <Video className="h-4 w-4 text-red-400" />;
+    return <File className="h-4 w-4 text-slate-400" />;
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const totalFiles = existingFiles.length + uploadedFiles.length;
@@ -152,37 +128,23 @@ export function FileUpload({
           onChange={handleFileChange}
           disabled={disabled || uploading || totalFiles >= maxFiles}
           className="hidden"
-          id="file-upload"
+          id="file-upload-input"
           accept={getAcceptTypes()}
         />
-        <label
-          htmlFor="file-upload"
-          className={`cursor-pointer flex flex-col items-center gap-2 ${
-            disabled || totalFiles >= maxFiles ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
+        <label 
+          htmlFor="file-upload-input"
+          className={`cursor-pointer flex flex-col items-center gap-2 ${disabled || totalFiles >= maxFiles ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          {uploading ? (
-            <Loader2 className="h-8 w-8 text-yellow-500 animate-spin" />
-          ) : (
-            <Upload className="h-8 w-8 text-slate-400" />
-          )}
+          {uploading ? <Loader2 className="h-8 w-8 text-yellow-500 animate-spin" /> : <Upload className="h-8 w-8 text-slate-400" />}
           <span className="text-sm text-slate-400">
-            {uploading ? 'Subiendo...' : totalFiles >= maxFiles ? 'Límite alcanzado' : 'Haz clic para subir archivos'}
+            {uploading ? 'Subiendo...' : 'Haz clic para subir archivos'}
           </span>
-          <span className="text-xs text-slate-500">{totalFiles}/{maxFiles} archivos</span>
         </label>
       </div>
 
-      {uploading && progress > 0 && (
-        <div className="space-y-1">
-          <Progress value={progress} className="h-2 bg-slate-700" />
-          <p className="text-xs text-slate-400 text-center">{progress}%</p>
-        </div>
-      )}
-
       {error && (
         <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 p-2 rounded">
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <AlertCircle className="h-4 w-4" />
           <span>{error}</span>
         </div>
       )}
@@ -190,10 +152,9 @@ export function FileUpload({
       {existingFiles.length > 0 && (
         <div className="space-y-2">
           {existingFiles.map((file, index) => (
-            <div key={`existing-${index}`} className="flex items-center gap-2 p-2 bg-slate-700/50 rounded-lg">
+            <div key={`ex-${index}`} className="flex items-center gap-2 p-2 bg-slate-700/50 rounded">
               {getFileIcon(file.type)}
               <span className="text-sm flex-1 truncate">{file.name}</span>
-              <span className="text-xs text-slate-400">{formatSize(file.size)}</span>
               {onRemoveExisting && (
                 <Button variant="ghost" size="sm" onClick={() => onRemoveExisting(index)} className="h-6 w-6 p-0 text-red-400">
                   <Trash2 className="h-4 w-4" />
@@ -206,17 +167,13 @@ export function FileUpload({
 
       {uploadedFiles.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs text-green-400 flex items-center gap-1">
-            <CheckCircle className="h-3 w-3" />
-            Subidos ({uploadedFiles.length}):
-          </p>
-          {uploadedFiles.map((file, index) => (
-            <div key={file.key} className="flex items-center gap-2 p-2 bg-green-900/20 border border-green-800/30 rounded-lg">
-              <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+          {uploadedFiles.map((file, i) => (
+            <div key={`up-${i}`} className="flex items-center gap-2 p-2 bg-green-900/20 rounded">
+              <CheckCircle className="h-4 w-4 text-green-500" />
               {getFileIcon(file.type)}
               <span className="text-sm flex-1 truncate">{file.name}</span>
               <span className="text-xs text-slate-400">{formatSize(file.size)}</span>
-              <Button variant="ghost" size="sm" onClick={() => removeFile(index)} className="h-6 w-6 p-0 text-red-400">
+              <Button variant="ghost" size="sm" onClick={() => removeFile(i)} className="h-6 w-6 p-0 text-red-400">
                 <X className="h-4 w-4" />
               </Button>
             </div>
