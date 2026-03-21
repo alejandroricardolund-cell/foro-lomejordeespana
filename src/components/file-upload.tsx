@@ -59,13 +59,7 @@ export function FileUpload({
     }
     
     if (!response.ok) {
-      let errorMsg = 'Error al subir archivo';
-      try {
-        const data = JSON.parse(responseText);
-        errorMsg = data.error || data.details || JSON.stringify(data);
-      } catch {
-        errorMsg = responseText.substring(0, 200) || `Error HTTP ${response.status}`;
-      }
+      let errorMsg = `ERROR ${response.status}: ${responseText.substring(0, 300)}`;
       throw new Error(errorMsg);
     }
 
