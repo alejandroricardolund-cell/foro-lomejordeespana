@@ -2,15 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 
 export async function POST(request: NextRequest) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  
-  if (!token) {
-    return NextResponse.json({ 
-      error: 'Token no configurado',
-      debug: Object.keys(process.env).filter(k => k.includes('BLOB'))
-    }, { status: 500 });
-  }
-
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -27,7 +18,6 @@ export async function POST(request: NextRequest) {
 
     const blob = await put(filename, file, {
       access: 'public',
-      token: token,
     });
 
     return NextResponse.json({
@@ -47,4 +37,12 @@ export async function POST(request: NextRequest) {
       details: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
+}
+
+export async function GET() {
+  return NextResponse.json({
+    message: 'Usa POST para probar el upload',
+    tokenExists: !!process.env.BLOB_READ_WRITE_TOKEN,
+    tokenLength: process.env.BLOB_READ_WRITE_TOKEN?.length || 0
+  });
 }
