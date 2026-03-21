@@ -45,18 +45,20 @@ export function FileUpload({
       body: formData,
     });
 
+    const responseText = await response.text();
+    
     if (!response.ok) {
       let errorMsg = 'Error al subir archivo';
       try {
-        const data = await response.json();
-        errorMsg = data.error || data.details || errorMsg;
+        const data = JSON.parse(responseText);
+        errorMsg = data.error || data.details || JSON.stringify(data);
       } catch {
-        errorMsg = `Error ${response.status}`;
+        errorMsg = responseText.substring(0, 100) || `Error ${response.status}`;
       }
       throw new Error(errorMsg);
     }
 
-    const data = await response.json();
+    const data = JSON.parse(responseText);
     return data.file;
   };
 
