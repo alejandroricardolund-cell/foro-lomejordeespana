@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 
 export async function POST(request: NextRequest) {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  
+  if (!token) {
+    return NextResponse.json({ 
+      error: 'Token no encontrado en esta ruta',
+      debug: {
+        hasToken: !!token,
+        tokenLength: token?.length || 0,
+        allEnvKeys: Object.keys(process.env).filter(k => k.includes('BLOB') || k.includes('TOKEN'))
+      }
+    }, { status: 500 });
+  }
+
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -18,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     const blob = await put(filename, file, {
       access: 'public',
-      token: process.env.BLOB_READ_WRITE_TOKEN,
+      token: token,
     });
 
     return NextResponse.json({
