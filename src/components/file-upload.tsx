@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { Button } from '@/components/ui/button';
 import { Upload, X, File, Image, Music, Loader2, CheckCircle, AlertCircle, Trash2, Video } from 'lucide-react';
 
@@ -34,6 +34,7 @@ export function FileUpload({
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const inputId = useId();
 
   const uploadFile = async (file: File): Promise<UploadedFile> => {
     const formData = new FormData();
@@ -130,11 +131,11 @@ export function FileUpload({
           onChange={handleFileChange}
           disabled={disabled || uploading || totalFiles >= maxFiles}
           className="hidden"
-          id="file-upload-input"
+          id={inputId}
           accept={getAcceptTypes()}
         />
         <label 
-          htmlFor="file-upload-input"
+          htmlFor={inputId}
           className={`cursor-pointer flex flex-col items-center gap-2 ${disabled || totalFiles >= maxFiles ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {uploading ? <Loader2 className="h-8 w-8 text-yellow-500 animate-spin" /> : <Upload className="h-8 w-8 text-slate-400" />}
