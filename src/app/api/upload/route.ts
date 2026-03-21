@@ -11,7 +11,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No se encontró archivo' }, { status: 400 });
     }
 
-    // Validar tipo de archivo
     const allowedTypes = [
       'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp',
       'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/aac',
@@ -23,8 +22,7 @@ export async function POST(request: NextRequest) {
       'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'text/plain', 'text/markdown', 'text/csv',
-      'application/json',
+      'text/plain', 'text/markdown', 'text/csv', 'application/json',
     ];
 
     const fileName = file.name.toLowerCase();
@@ -32,26 +30,19 @@ export async function POST(request: NextRequest) {
     const hasExtraExtension = extraExtensions.some(ext => fileName.endsWith(ext));
 
     if (!allowedTypes.includes(file.type) && !hasExtraExtension) {
-      return NextResponse.json({ 
-        error: `Tipo no permitido: ${file.type || file.name}` 
-      }, { status: 400 });
+      return NextResponse.json({ error: `Tipo no permitido: ${file.type || file.name}` }, { status: 400 });
     }
 
-    // Validar tamaño
     const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 20 * 1024 * 1024;
     if (file.size > maxSize) {
-      return NextResponse.json({ 
-        error: `Archivo muy grande. Máx: ${file.type.startsWith('video/') ? '50MB' : '20MB'}` 
-      }, { status: 400 });
+      return NextResponse.json({ error: `Archivo muy grande. Máx: ${file.type.startsWith('video/') ? '50MB' : '20MB'}` }, { status: 400 });
     }
 
-    // Generar nombre único
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 8);
     const ext = file.name.split('.').pop() || 'bin';
     const filename = `${folder}/${timestamp}-${randomStr}.${ext}`;
 
-    // Subir a Vercel Blob
     const blob = await put(filename, file, {
       access: 'public',
     });
