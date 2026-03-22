@@ -8,34 +8,34 @@ export async function uploadFile(formData: FormData) {
     return { success: false, error: 'No hay archivo' };
   }
 
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  
-  if (!token) {
-    return { success: false, error: 'Sin token en servidor' };
-  }
-
   try {
+    // Obtener token via GET (que sí funciona)
+    const tokenRes = await fetch(`${process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000'}/api/get-blob-token`);
+    const tokenData = await tokenRes.json();
+    const token = tokenData.token;
+    
+    if (!token) {
+      return { success: false, error: 'No se pudo obtener token' };
+    }
+
     const ext = file.name.split('.').pop() || 'bin';
     const filename = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
     
-    // Convertir File a ArrayBuffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Usar API REST directamente
     const response = await fetch(`https://blob.vercel-storage.com/${filename}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': file.type || 'application/octet-stream',
-        'x-content-type': file.type || 'application/octet-stream',
       },
       body: buffer,
     });
 
     if (!response.ok) {
       const text = await response.text();
-      return { success: false, error: `Error API: ${response.status} - ${text.substring(0, 200)}` };
+      return { success: false, error: `Error: ${response.status}` };
     }
 
     const data = await response.json();
