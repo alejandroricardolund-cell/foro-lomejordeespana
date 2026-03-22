@@ -96,16 +96,39 @@ export function FileUpload({
     return 'image/*,audio/*,video/*,.pdf,.doc,.docx,.txt,.md';
   };
 
-  const getFileIcon = (type: string) => {
-    if (type.startsWith('image/')) return <Image className="h-4 w-4 text-blue-400" />;
-    if (type.startsWith('audio/')) return <Music className="h-4 w-4 text-purple-400" />;
-    if (type.startsWith('video/')) return <Video className="h-4 w-4 text-red-400" />;
-    return <File className="h-4 w-4 text-slate-400" />;
-  };
-
   const formatSize = (bytes: number) => {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const renderFile = (file: UploadedFile, index: number, isExisting: boolean) => {
+    const isImage = file.type.startsWith('image/');
+    
+    return (
+      <div key={`${isExisting ? 'ex' : 'up'}-${index}`} className="flex items-center gap-2 p-2 bg-slate-700/50 rounded">
+        {isImage ? (
+          <img 
+            src={file.url} 
+            alt={file.name} 
+            className="w-12 h-12 object-cover rounded"
+          />
+        ) : (
+          <File className="h-8 w-8 text-slate-400" />
+        )}
+        <span className="text-sm flex-1 truncate">{file.name}</span>
+        <span className="text-xs text-slate-400">{formatSize(file.size)}</span>
+        {(isExisting ? onRemoveExisting : true) && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => isExisting ? onRemoveExisting?.(index) : removeFile(index)} 
+            className="h-6 w-6 p-0 text-red-400"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    );
   };
 
   const totalFiles = existingFiles.length + uploadedFiles.length;
@@ -142,33 +165,17 @@ export function FileUpload({
 
       {existingFiles.length > 0 && (
         <div className="space-y-2">
-          {existingFiles.map((file, index) => (
-            <div key={`ex-${index}`} className="flex items-center gap-2 p-2 bg-slate-700/50 rounded">
-              {getFileIcon(file.type)}
-              <span className="text-sm flex-1 truncate">{file.name}</span>
-              {onRemoveExisting && (
-                <Button variant="ghost" size="sm" onClick={() => onRemoveExisting(index)} className="h-6 w-6 p-0 text-red-400">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          ))}
+          {existingFiles.map((file, index) => renderFile(file, index, true))}
         </div>
       )}
 
       {uploadedFiles.length > 0 && (
         <div className="space-y-2">
-          {uploadedFiles.map((file, i) => (
-            <div key={`up-${i}`} className="flex items-center gap-2 p-2 bg-green-900/20 rounded">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              {getFileIcon(file.type)}
-              <span className="text-sm flex-1 truncate">{file.name}</span>
-              <span className="text-xs text-slate-400">{formatSize(file.size)}</span>
-              <Button variant="ghost" size="sm" onClick={() => removeFile(i)} className="h-6 w-6 p-0 text-red-400">
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
+          <p className="text-xs text-green-400 flex items-center gap-1">
+            <CheckCircle className="h-3 w-3" />
+            Subidos ({uploadedFiles.length}):
+          </p>
+          {uploadedFiles.map((file, index) => renderFile(file, index, false))}
         </div>
       )}
     </div>
