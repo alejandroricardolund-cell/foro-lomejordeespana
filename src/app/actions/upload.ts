@@ -9,8 +9,8 @@ export async function uploadFile(formData: FormData) {
   }
 
   try {
-    // Obtener token via GET (que sí funciona)
-    const tokenRes = await fetch(`${process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000'}/api/get-blob-token`);
+    // Obtener token via GET
+    const tokenRes = await fetch('https://foro-lomejordeespana.vercel.app/api/get-blob-token');
     const tokenData = await tokenRes.json();
     const token = tokenData.token;
     
@@ -34,8 +34,7 @@ export async function uploadFile(formData: FormData) {
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      return { success: false, error: `Error: ${response.status}` };
+      return { success: false, error: `Error API: ${response.status}` };
     }
 
     const data = await response.json();
