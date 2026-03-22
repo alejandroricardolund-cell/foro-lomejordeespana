@@ -3,6 +3,7 @@
 import { useState, useId } from 'react';
 import { Button } from '@/components/ui/button';
 import { Upload, X, File, Image, Music, Loader2, CheckCircle, AlertCircle, Trash2, Video } from 'lucide-react';
+import { uploadFile } from '@/app/actions/upload';
 
 export interface UploadedFile {
   url: string;
@@ -36,45 +37,18 @@ export function FileUpload({
   const [error, setError] = useState<string | null>(null);
   const inputId = useId();
 
-  const uploadFile = async (file: File): Promise<UploadedFile> => {
+  const handleUpload = async (file: File): Promise<UploadedFile> => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('folder', file.type.startsWith('image/') ? 'images' : 'forum');
 
-    let response;
-    try {
-      response = await fetch('/api/subir', {
-        method: 'POST',
-        body: formData,
-      });
-    } catch (fetchError: any) {
-      throw new Error('Error de red: ' + fetchError.message);
+    const result = await uploadFile(formData);
+
+    if (!result.success) {
+      throw new Error(result.error || 'Error al subir');
     }
 
-    let responseText;
-    try {
-      responseText = await response.text();
-    } catch (textError: any) {
-      throw new Error('Error leyendo respuesta: ' + textError.message);
-    }
-    
-    if (!response.ok) {
-      let errorMsg = `ERROR ${response.status}: ${responseText.substring(0, 300)}`;
-      throw new Error(errorMsg);
-    }
-
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch {
-      throw new Error('Respuesta inválida del servidor: ' + responseText.substring(0, 100));
-    }
-    
-    if (!data.file) {
-      throw new Error('No se recibió información del archivo: ' + JSON.stringify(data));
-    }
-    
-    return data.file;
+    return result.file as UploadedFile;
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,7 +68,7 @@ export function FileUpload({
 
     try {
       for (const file of Array.from(files)) {
-        const result = await uploadFile(file);
+        const result = await handleUpload(file);
         uploadedResults.push(result);
       }
 
