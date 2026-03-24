@@ -46,15 +46,16 @@ export async function POST(request: NextRequest) {
 
     const { topicId, message, attachments } = await request.json();
 
-    if (!topicId || !message) {
-      return NextResponse.json({ error: 'Tema y mensaje son requeridos' }, { status: 400 });
+    // Permitir mensajes sin texto si hay archivos adjuntos
+    if (!topicId || (!message && (!attachments || attachments.length === 0))) {
+      return NextResponse.json({ error: 'Se requiere mensaje o archivos adjuntos' }, { status: 400 });
     }
 
     const chatMessage = await db.chatMessage.create({
       data: {
         topicId,
         userId,
-        message
+        message: message || '' // Permitir mensaje vacío si hay adjuntos
       },
       include: {
         user: { select: { id: true, name: true } }
