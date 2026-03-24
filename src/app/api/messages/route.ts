@@ -50,8 +50,9 @@ export async function POST(request: NextRequest) {
 
     const { receiverId, subject, content, attachments } = await request.json();
 
-    if (!receiverId || !content) {
-      return NextResponse.json({ error: 'Destinatario y contenido son requeridos' }, { status: 400 });
+    // Permitir mensajes sin texto si hay archivos adjuntos
+    if (!receiverId || (!content && (!attachments || attachments.length === 0))) {
+      return NextResponse.json({ error: 'Se requiere destinatario y contenido o archivos adjuntos' }, { status: 400 });
     }
 
     const message = await db.message.create({
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
         senderId: userId,
         receiverId,
         subject: subject || '(Sin asunto)',
-        content
+        content: content || '' // Permitir contenido vacío si hay adjuntos
       },
       include: {
         sender: { select: { id: true, name: true } },
