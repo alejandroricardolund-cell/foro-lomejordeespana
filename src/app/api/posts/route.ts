@@ -71,8 +71,9 @@ export async function POST(request: NextRequest) {
 
     const { subtopicId, content, parentId, attachments } = await request.json();
 
-    if (!subtopicId || !content) {
-      return NextResponse.json({ error: 'Subtema y contenido son requeridos' }, { status: 400 });
+    // Permitir posts sin texto si hay archivos adjuntos
+    if (!subtopicId || (!content && (!attachments || attachments.length === 0))) {
+      return NextResponse.json({ error: 'Se requiere contenido o archivos adjuntos' }, { status: 400 });
     }
 
     // Si es una respuesta, verificar que el post padre existe y pertenece al mismo subtema
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
       data: {
         subtopicId,
         userId,
-        content,
+        content: content || '', // Permitir contenido vacío si hay adjuntos
         parentId: parentId || null
       },
       include: {
@@ -176,6 +177,10 @@ export async function DELETE(request: NextRequest) {
     if (post.userId !== userId && user?.role !== 'admin') {
       return NextResponse.json({ error: 'No tiene permiso para eliminar este post' }, { status: 403 });
     }
+
+    await db.post.delete({ where: { id } });
+
+    return NextResponse.json({ error: 'No tiene permiso para eliminar este post' }, { status: 403 });
 
     await db.post.delete({ where: { id } });
 
