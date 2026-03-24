@@ -1379,14 +1379,12 @@ Entra en: https://lomejordeespana.es
           )}
 
           {view === 'messages' && (
-            <div className="space-y-4">
+            <Tabs value={messageTab} onValueChange={(v) => setMessageTab(v as 'received' | 'sent')} className="space-y-4">
               <div className="flex items-center justify-between">
-                <Tabs value={messageTab} onValueChange={(v) => setMessageTab(v as 'received' | 'sent')}>
-                  <TabsList className="bg-slate-800">
-                    <TabsTrigger value="received">Recibidos ({messages.length})</TabsTrigger>
-                    <TabsTrigger value="sent">Enviados ({sentMessages.length})</TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                <TabsList className="bg-slate-800">
+                  <TabsTrigger value="received">Recibidos ({messages.length})</TabsTrigger>
+                  <TabsTrigger value="sent">Enviados ({sentMessages.length})</TabsTrigger>
+                </TabsList>
                 <Dialog open={showNewMessage} onOpenChange={setShowNewMessage}>
                   <DialogTrigger asChild><Button size="sm" className="gap-1" onClick={handleOpenNewMessage}><Plus className="h-4 w-4" />Nuevo Mensaje</Button></DialogTrigger>
                   <DialogContent className="bg-slate-800 border-slate-700">
@@ -1497,7 +1495,7 @@ Entra en: https://lomejordeespana.es
                   )}
                 </div>
               </TabsContent>
-            </div>
+            </Tabs>
           )}
         </main>
       </div>
