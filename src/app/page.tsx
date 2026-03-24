@@ -971,11 +971,11 @@ export default function ForumPage() {
       );
     }
     
-    // Otros archivos: link descargable
+    // Otros archivos (PDF, etc): abrir en nueva pestaña con proxy
     return (
       <a
         key={att.id}
-        href={att.url}
+        href={getProxyUrl(att.url)}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-2 px-3 py-2 bg-slate-700/50 hover:bg-slate-600/50 rounded border border-slate-600 hover:border-yellow-500 transition-colors"
