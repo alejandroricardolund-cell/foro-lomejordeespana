@@ -17,50 +17,54 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ results: [] });
     }
 
-    // Buscar en temas
+    // Buscar en temas (case-insensitive search)
     const topics = await db.topic.findMany({
       where: {
         OR: [
-          { name: { contains: query, mode: 'insensitive' } },
-          { description: { contains: query, mode: 'insensitive' } }
+          { name: { contains: query } },
+          { description: { contains: query } }
         ]
       },
       select: {
         id: true,
         name: true,
         description: true,
-        _count: { select: { subtopics: true } }
+        subtopics: { select: { id: true } }
       }
     });
 
     // Buscar en subtemas
     const subtopics = await db.subtopic.findMany({
       where: {
-        name: { contains: query, mode: 'insensitive' }
+        name: { contains: query }
       },
       select: {
         id: true,
         name: true,
+        topicId: true,
         topic: { select: { id: true, name: true } },
-        _count: { select: { posts: true } }
+        posts: { select: { id: true } }
       }
     });
 
     // Buscar en posts (solo posts principales, no respuestas)
     const posts = await db.post.findMany({
       where: {
-        content: { contains: query, mode: 'insensitive' },
+        content: { contains: query },
         parentId: null
       },
       select: {
         id: true,
         content: true,
         createdAt: true,
-        author: { select: { name: true } },
+        userId: true,
+        subtopicId: true,
+        author: { select: { id: true, name: true } },
         subtopic: {
           select: {
             id: true,
             name: true,
+            topicId: true,
             topic: { select: { id: true, name: true } }
           }
         }
@@ -73,14 +77,14 @@ export async function GET(request: NextRequest) {
         type: 'topic' as const,
         id: t.id,
         title: t.name,
-        description: t.description || `${t._count.subtopics} subtemas`,
+        description: t.description || `${t.subtopics.length} subtemas`,
         link: t.id
       })),
       subtopics: subtopics.map(s => ({
         type: 'subtopic' as const,
         id: s.id,
         title: s.name,
-        description: `${s._count.posts} publicaciones en ${s.topic.name}`,
+        description: `${s.posts.length} publicaciones en ${s.topic.name}`,
         link: `${s.topic.id}#${s.id}`,
         topicId: s.topic.id
       })),
