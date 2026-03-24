@@ -66,11 +66,21 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Se requiere ID o key del archivo' }, { status: 400 });
     }
 
-    const where = id ? { id } : { key };
-    
-    await db.fileAttachment.delete({
-      where,
-    });
+    // Use id as primary identifier, or find by key first
+    if (id) {
+      await db.fileAttachment.delete({
+        where: { id },
+      });
+    } else if (key) {
+      const attachment = await db.fileAttachment.findFirst({
+        where: { key },
+      });
+      if (attachment) {
+        await db.fileAttachment.delete({
+          where: { id: attachment.id },
+        });
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
