@@ -50,12 +50,14 @@ export async function POST(request: NextRequest) {
     const ext = file.name.split('.').pop() || 'bin';
     const filename = `${folder}/${timestamp}-${randomStr}.${ext}`;
 
-    // Obtener el token via GET request interno (workaround para Vercel)
-    const protocol = request.headers.get('x-forwarded-proto') || 'https';
-    const host = request.headers.get('host') || 'localhost:3000';
-    const tokenUrl = `${protocol}://${host}/api/get-blob-token`;
+    // Obtener el token via GET request interno
+    // Usamos la URL del sitio desplegado o localhost
+    const baseUrl = process.env.VERCEL 
+      ? 'https://foro-lomejordeespana.vercel.app' 
+      : 'http://localhost:3000';
     
-    const tokenResponse = await fetch(tokenUrl);
+    console.log('Fetching token from:', `${baseUrl}/api/get-blob-token`);
+    const tokenResponse = await fetch(`${baseUrl}/api/get-blob-token`);
     const tokenData = await tokenResponse.json();
     
     if (!tokenData.token) {
@@ -72,8 +74,10 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Subir usando REST API directamente
-    const blobResponse = await fetch(`https://blob.vercel-storage.com/${filename}`, {
+    // Subir usando REST API directamente con Content-Type correcto
+    // Añadir contentType como query parameter para asegurar que Vercel lo respete
+    const contentTypeEncoded = encodeURIComponent(file.type || 'application/octet-stream');
+    const blobResponse = await fetch(`https://blob.vercel-storage.com/${filename}?contentType=${contentTypeEncoded}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
