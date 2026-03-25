@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { cookies } from 'next/headers';
 
-// GET - Buscar en temas, subtemas y posts
 export async function GET(request: NextRequest) {
   try {
     const sessionCookie = (await cookies()).get('session');
@@ -17,54 +16,45 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ results: [] });
     }
 
-    // Buscar en temas (case-insensitive search)
     const topics = await db.topic.findMany({
       where: {
         OR: [
-          { name: { contains: query } },
-          { description: { contains: query } }
+          { name: { contains: query, mode: 'insensitive' } },
+          { description: { contains: query, mode: 'insensitive' } }
         ]
       },
       select: {
         id: true,
         name: true,
         description: true,
-        subtopics: { select: { id: true } }
+        _count: { select: { subtopics: true } }
       }
     });
 
-    // Buscar en subtemas
     const subtopics = await db.subtopic.findMany({
-      where: {
-        name: { contains: query }
-      },
+      where: { name: { contains: query, mode: 'insensitive' } },
       select: {
         id: true,
         name: true,
-        topicId: true,
         topic: { select: { id: true, name: true } },
-        posts: { select: { id: true } }
+        _count: { select: { posts: true } }
       }
     });
 
-    // Buscar en posts (solo posts principales, no respuestas)
     const posts = await db.post.findMany({
       where: {
-        content: { contains: query },
+        content: { contains: query, mode: 'insensitive' },
         parentId: null
       },
       select: {
         id: true,
         content: true,
         createdAt: true,
-        userId: true,
-        subtopicId: true,
         author: { select: { id: true, name: true } },
         subtopic: {
           select: {
             id: true,
             name: true,
-            topicId: true,
             topic: { select: { id: true, name: true } }
           }
         }
@@ -77,14 +67,14 @@ export async function GET(request: NextRequest) {
         type: 'topic' as const,
         id: t.id,
         title: t.name,
-        description: t.description || `${t.subtopics.length} subtemas`,
+        description: t.description || `${t._count.subtopics} subtemas`,
         link: t.id
       })),
       subtopics: subtopics.map(s => ({
         type: 'subtopic' as const,
         id: s.id,
         title: s.name,
-        description: `${s.posts.length} publicaciones en ${s.topic.name}`,
+        description: `${s._count.posts} publicaciones en ${s.topic.name}`,
         link: `${s.topic.id}#${s.id}`,
         topicId: s.topic.id
       })),
