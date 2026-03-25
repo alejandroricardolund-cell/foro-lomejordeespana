@@ -969,7 +969,7 @@ export default function ForumPage() {
           </audio>
         </div>
       );
-    }
+    } 
     
     // Otros archivos (PDF, etc): abrir en nueva pestaña con proxy
     return (
