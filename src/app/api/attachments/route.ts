@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-// GET - Obtener archivos adjuntos
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -26,7 +25,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Crear nuevo archivo adjunto
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -56,7 +54,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE - Eliminar archivo adjunto
 export async function DELETE(request: NextRequest) {
   try {
     const body = await request.json();
@@ -66,19 +63,12 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Se requiere ID o key del archivo' }, { status: 400 });
     }
 
-    // Use id as primary identifier, or find by key first
     if (id) {
-      await db.fileAttachment.delete({
-        where: { id },
-      });
+      await db.fileAttachment.delete({ where: { id } });
     } else if (key) {
-      const attachment = await db.fileAttachment.findFirst({
-        where: { key },
-      });
+      const attachment = await db.fileAttachment.findFirst({ where: { key } });
       if (attachment) {
-        await db.fileAttachment.delete({
-          where: { id: attachment.id },
-        });
+        await db.fileAttachment.delete({ where: { id: attachment.id } });
       }
     }
 
