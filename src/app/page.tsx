@@ -2209,8 +2209,6 @@ Entra en: https://lomejordeespana.es
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
       {/* Diálogo: Invitar Usuario */}
       <Dialog open={showInviteUser} onOpenChange={setShowInviteUser}>
         <DialogContent className="bg-slate-800 border-slate-700">
