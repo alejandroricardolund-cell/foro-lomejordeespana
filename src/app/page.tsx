@@ -1109,6 +1109,7 @@ Entra en: https://lomejordeespana.es
   }
     // Vista del Foro (logueado)
   return (
+    <>
     <div className="min-h-screen bg-slate-900 text-white flex">
       {/* Sidebar */}
       <div className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-slate-800 border-r border-slate-700 flex flex-col transition-all duration-300`}>
@@ -2359,6 +2360,6 @@ Entra en: https://lomejordeespana.es
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
