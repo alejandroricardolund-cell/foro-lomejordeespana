@@ -7,7 +7,7 @@ import {
   Upload, X, File, Image, Music, FileText, Loader2, 
   CheckCircle, AlertCircle, Trash2, Video 
 } from 'lucide-react';
-import { upload } from '@vercel/blob/client';
+import { uploadFile } from '@/app/actions/upload';
 
 export interface UploadedFile {
   url: string;
@@ -41,33 +41,24 @@ export function FileUpload({
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const uploadFile = async (file: File): Promise<UploadedFile> => {
+  const handleUpload = async (file: File): Promise<UploadedFile> => {
     let folder = 'forum';
     if (file.type.startsWith('image/')) folder = 'images';
     else if (file.type.startsWith('audio/')) folder = 'audio';
     else if (file.type.startsWith('video/')) folder = 'videos';
     else if (file.type.includes('pdf') || file.type.includes('document') || file.type.includes('presentation')) folder = 'documents';
 
-    const timestamp = Date.now();
-    const randomStr = Math.random().toString(36).substring(2, 8);
-    const ext = file.name.split('.').pop() || 'bin';
-    const filename = `${folder}/${timestamp}-${randomStr}.${ext}`;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder', folder);
 
-    const blob = await upload(filename, file, {
-      access: 'public',
-      handleUploadUrl: '/api/upload-blob',
-      onUploadProgress(progressValue) {
-        setProgress(Math.round(progressValue.percentage));
-      },
-    });
-    
-    return {
-      url: blob.url,
-      key: blob.url,
-      name: file.name,
-      size: file.size,
-      type: file.type || 'application/octet-stream',
-    };
+    const result = await uploadFile(formData);
+
+    if (result.error) {
+      throw new Error(result.error);
+    }
+
+    return result.file as UploadedFile;
   };
 
   const handleFileChange = useCallback(
@@ -86,6 +77,8 @@ export function FileUpload({
       setProgress(0);
 
       const uploadedResults: UploadedFile[] = [];
+      const totalSize = Array.from(files).reduce((acc, f) => acc + f.size, 0);
+      let uploadedSize = 0;
 
       try {
         for (const file of Array.from(files)) {
@@ -117,8 +110,10 @@ export function FileUpload({
             throw new Error(`${file.name} es muy grande. Máx: ${file.type.startsWith('video/') ? '50MB' : '20MB'}`);
           }
 
-          const result = await uploadFile(file);
+          const result = await handleUpload(file);
           uploadedResults.push(result);
+          uploadedSize += file.size;
+          setProgress(Math.round((uploadedSize / totalSize) * 100));
         }
 
         setUploadedFiles((prev) => [...prev, ...uploadedResults]);
@@ -159,31 +154,21 @@ export function FileUpload({
 
   const getAcceptTypes = () => {
     switch (allowedTypes) {
-      case 'images':
-        return 'image/*';
-      case 'audio':
-        return 'audio/*';
-      case 'video':
-        return 'video/*';
-      case 'documents':
-        return '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv,.note,.pages,.numbers,.key,.rtf,.odt,.ods,.odp';
-      default:
-        return 'image/*,audio/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv,.note,.pages,.numbers,.key,.rtf,.odt,.ods,.odp,.zip,.rar';
+      case 'images': return 'image/*';
+      case 'audio': return 'audio/*';
+      case 'video': return 'video/*';
+      case 'documents': return '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv,.note,.pages,.numbers,.key,.rtf,.odt,.ods,.odp';
+      default: return 'image/*,audio/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv,.note,.pages,.numbers,.key,.rtf,.odt,.ods,.odp,.zip,.rar';
     }
   };
 
   const getTypeLabel = () => {
     switch (allowedTypes) {
-      case 'images':
-        return 'Imágenes (JPG, PNG, GIF, WebP) - máx. 20MB';
-      case 'audio':
-        return 'Audio (MP3, WAV, OGG) - máx. 20MB';
-      case 'video':
-        return 'Video (MP4, WebM, MOV) - máx. 50MB';
-      case 'documents':
-        return 'Documentos (PDF, Word, PowerPoint, Excel, Notas, TXT, etc.) - máx. 20MB';
-      default:
-        return 'Imágenes, audio, video, documentos o notas';
+      case 'images': return 'Imágenes (JPG, PNG, GIF, WebP) - máx. 20MB';
+      case 'audio': return 'Audio (MP3, WAV, OGG) - máx. 20MB';
+      case 'video': return 'Video (MP4, WebM, MOV) - máx. 50MB';
+      case 'documents': return 'Documentos (PDF, Word, PowerPoint, Excel) - máx. 20MB';
+      default: return 'Imágenes, audio, video, documentos';
     }
   };
 
@@ -192,29 +177,10 @@ export function FileUpload({
   return (
     <div className="space-y-3">
       <div className="border-2 border-dashed border-slate-600 rounded-lg p-4 text-center hover:border-yellow-500 transition-colors">
-        <input
-          type="file"
-          multiple
-          onChange={handleFileChange}
-          disabled={disabled || uploading || totalFiles >= maxFiles}
-          className="hidden"
-          id="file-upload"
-          accept={getAcceptTypes()}
-        />
-        <label
-          htmlFor="file-upload"
-          className={`cursor-pointer flex flex-col items-center gap-2 ${
-            disabled || totalFiles >= maxFiles ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
-        >
-          {uploading ? (
-            <Loader2 className="h-8 w-8 text-yellow-500 animate-spin" />
-          ) : (
-            <Upload className="h-8 w-8 text-slate-400" />
-          )}
-          <span className="text-sm text-slate-400">
-            {uploading ? 'Subiendo...' : totalFiles >= maxFiles ? 'Límite alcanzado' : 'Haz clic para subir archivos'}
-          </span>
+        <input type="file" multiple onChange={handleFileChange} disabled={disabled || uploading || totalFiles >= maxFiles} className="hidden" id="file-upload" accept={getAcceptTypes()} />
+        <label htmlFor="file-upload" className={`cursor-pointer flex flex-col items-center gap-2 ${disabled || totalFiles >= maxFiles ? 'opacity-50 cursor-not-allowed' : ''}`}>
+          {uploading ? <Loader2 className="h-8 w-8 text-yellow-500 animate-spin" /> : <Upload className="h-8 w-8 text-slate-400" />}
+          <span className="text-sm text-slate-400">{uploading ? 'Subiendo...' : totalFiles >= maxFiles ? 'Límite alcanzado' : 'Haz clic para subir archivos'}</span>
           <span className="text-xs text-slate-500">{getTypeLabel()}</span>
           <span className="text-xs text-slate-500">{totalFiles}/{maxFiles} archivos</span>
         </label>
@@ -242,11 +208,7 @@ export function FileUpload({
               {getFileIcon(file.type)}
               <span className="text-sm flex-1 truncate text-slate-200">{file.name}</span>
               <span className="text-xs text-slate-400">{formatSize(file.size)}</span>
-              {onRemoveExisting && (
-                <Button variant="ghost" size="sm" onClick={() => onRemoveExisting(index)} className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/20">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
+              {onRemoveExisting && <Button variant="ghost" size="sm" onClick={() => onRemoveExisting(index)} className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/20"><Trash2 className="h-4 w-4" /></Button>}
             </div>
           ))}
         </div>
@@ -254,19 +216,14 @@ export function FileUpload({
 
       {uploadedFiles.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs text-green-400 flex items-center gap-1">
-            <CheckCircle className="h-3 w-3" />
-            Subidos ({uploadedFiles.length}):
-          </p>
+          <p className="text-xs text-green-400 flex items-center gap-1"><CheckCircle className="h-3 w-3" />Subidos ({uploadedFiles.length}):</p>
           {uploadedFiles.map((file, index) => (
             <div key={file.key} className="flex items-center gap-2 p-2 bg-green-900/20 border border-green-800/30 rounded-lg">
               <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
               {getFileIcon(file.type)}
               <span className="text-sm flex-1 truncate text-slate-200">{file.name}</span>
               <span className="text-xs text-slate-400">{formatSize(file.size)}</span>
-              <Button variant="ghost" size="sm" onClick={() => removeFile(index)} className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/20">
-                <X className="h-4 w-4" />
-              </Button>
+              <Button variant="ghost" size="sm" onClick={() => removeFile(index)} className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/20"><X className="h-4 w-4" /></Button>
             </div>
           ))}
         </div>
