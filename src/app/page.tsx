@@ -9,10 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   Lock, AlertCircle, Loader2, Home, MessageSquare, Users, Settings, LogOut, 
   Plus, ThumbsUp, ThumbsDown, Trash2, Edit, Send, Mail, ChevronRight, ChevronDown, ChevronUp,
-  Menu, X, Key, User, UserX, Crown, Search, Reply, Circle, CheckCircle, XCircle, Copy, Check, File, Music
+  Menu, X, Key, User, UserX, UserCheck, UserPlus, Crown, Search, Reply, Circle, CheckCircle, XCircle, Copy, Check, File, Music
 } from 'lucide-react';
 import { FileUpload, UploadedFile } from '@/components/file-upload';
 
