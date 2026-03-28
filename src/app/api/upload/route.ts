@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { put } from '@vercel/blob';
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,70 +51,38 @@ export async function POST(request: NextRequest) {
     const ext = file.name.split('.').pop() || 'bin';
     const filename = `${folder}/${timestamp}-${randomStr}.${ext}`;
 
-    // Obtener el token via GET request interno
-    // Usamos la URL del sitio desplegado o localhost
-    const baseUrl = process.env.VERCEL 
-      ? 'https://foro-lomejordeespana.vercel.app' 
-      : 'http://localhost:3000';
-    
-    console.log('Fetching token from:', `${baseUrl}/api/get-blob-token`);
-    const tokenResponse = await fetch(`${baseUrl}/api/get-blob-token`);
-    const tokenData = await tokenResponse.json();
-    
-    if (!tokenData.token) {
-      console.error('No se pudo obtener el token de Blob Store');
-      return NextResponse.json({ 
-        error: 'Error de configuración del servidor',
-        details: 'Token no disponible'
-      }, { status: 500 });
-    }
-
-    const token = tokenData.token;
-
-    // Convertir el archivo a buffer
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Subir usando REST API directamente con Content-Type correcto
-    // Añadir contentType como query parameter para asegurar que Vercel lo respete
-    const contentTypeEncoded = encodeURIComponent(file.type || 'application/octet-stream');
-    const blobResponse = await fetch(`https://blob.vercel-storage.com/${filename}?contentType=${contentTypeEncoded}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': file.type || 'application/octet-stream',
-        'x-content-type': file.type || 'application/octet-stream',
-      },
-      body: buffer,
+    // Usar el SDK de Vercel Blob directamente (más eficiente)
+    const blob = await put(filename, file, {
+      access: 'public',
+      contentType: file.type || 'application/octet-stream',
+      token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
-    if (!blobResponse.ok) {
-      const errorText = await blobResponse.text();
-      console.error('Blob upload error:', errorText);
-      return NextResponse.json({ 
-        error: 'Error al subir a Blob Store',
-        details: errorText
-      }, { status: 500 });
-    }
-
-    const blobResult = await blobResponse.json();
-    
     return NextResponse.json({
       success: true,
       file: {
-        url: blobResult.url,
+        url: blob.url,
         name: file.name,
         size: file.size,
         type: file.type || 'application/octet-stream',
-        key: blobResult.url,
+        key: blob.url,
       }
     });
     
   } catch (error) {
     console.error('Upload error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    if (errorMessage.includes('timeout') || errorMessage.includes('Timeout')) {
+      return NextResponse.json({ 
+        error: 'Tiempo de espera agotado. Intenta con un archivo más pequeño.',
+        details: errorMessage
+      }, { status: 504 });
+    }
+    
     return NextResponse.json({ 
       error: 'Error al subir archivo',
-      details: error instanceof Error ? error.message : String(error)
+      details: errorMessage
     }, { status: 500 });
   }
 }
