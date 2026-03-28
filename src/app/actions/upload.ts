@@ -1,58 +1,71 @@
 'use server';
 
-export async function uploadFile(formData: FormData) {
-  const file = formData.get('file') as File;
-  const folder = (formData.get('folder') as string) || 'forum';
-  
-  if (!file) {
-    return { success: false, error: 'No hay archivo' };
-  }
+import { put } from '@vercel/blob';
 
+export async function uploadFile(formData: FormData) {
   try {
-    // Obtener token via GET
-    const tokenRes = await fetch('https://foro-lomejordeespana.vercel.app/api/get-blob-token');
-    const tokenData = await tokenRes.json();
-    const token = tokenData.token;
-    
-    if (!token) {
-      return { success: false, error: 'No se pudo obtener token' };
+    const file = formData.get('file') as File;
+    const folder = (formData.get('folder') as string) || 'forum';
+
+    if (!file) {
+      return { error: 'No se encontró archivo' };
     }
 
-    const ext = file.name.split('.').pop() || 'bin';
-    const filename = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
-    
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp',
+      'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/aac',
+      'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain', 'text/markdown', 'text/csv',
+      'application/json',
+    ];
 
-    const response = await fetch(`https://blob.vercel-storage.com/${filename}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': file.type || 'application/octet-stream',
-      },
-      body: buffer,
+    const fileName = file.name.toLowerCase();
+    const extraExtensions = ['.md', '.txt', '.json', '.csv', '.note', '.pages', '.numbers', '.key', '.rtf', '.odt', '.zip', '.rar'];
+    const hasExtraExtension = extraExtensions.some(ext => fileName.endsWith(ext));
+
+    if (!allowedTypes.includes(file.type) && !hasExtraExtension) {
+      return { error: `Tipo no permitido: ${file.type || file.name}` };
+    }
+
+    const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 20 * 1024 * 1024;
+    if (file.size > maxSize) {
+      return { error: `Archivo muy grande. Máx: ${file.type.startsWith('video/') ? '50MB' : '20MB'}` };
+    }
+
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 8);
+    const ext = file.name.split('.').pop() || 'bin';
+    const filename = `${folder}/${timestamp}-${randomStr}.${ext}`;
+
+    const blob = await put(filename, file, {
+      access: 'public',
+      contentType: file.type || 'application/octet-stream',
+      token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
-    if (!response.ok) {
-      return { success: false, error: `Error API: ${response.status}` };
-    }
-
-    const data = await response.json();
-    
     return {
       success: true,
       file: {
-        url: data.url,
+        url: blob.url,
         name: file.name,
         size: file.size,
         type: file.type || 'application/octet-stream',
-        key: data.url,
+        key: blob.url,
       }
     };
+
   } catch (error) {
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Error desconocido' 
+    console.error('Upload error:', error);
+    return {
+      error: 'Error al subir archivo',
+      details: error instanceof Error ? error.message : String(error)
     };
   }
 }
