@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useId } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Upload, X, File, Image, Music, Loader2, CheckCircle, AlertCircle, Trash2, Video } from 'lucide-react';
-import { uploadFile } from '@/app/actions/upload';
+import { Progress } from '@/components/ui/progress';
+import { 
+  Upload, X, File, Image, Music, FileText, Loader2, 
+  CheckCircle, AlertCircle, Trash2, Video 
+} from 'lucide-react';
 
 export interface UploadedFile {
   url: string;
@@ -33,108 +36,191 @@ export function FileUpload({
   onRemoveExisting,
 }: FileUploadProps) {
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const inputId = useId();
 
-  const handleUpload = async (file: File): Promise<UploadedFile> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('folder', file.type.startsWith('image/') ? 'images' : 'forum');
+  const uploadFile = async (file: File): Promise<UploadedFile> => {
+    // Determinar carpeta según tipo
+    let folder = 'forum';
+    if (file.type.startsWith('image/')) folder = 'images';
+    else if (file.type.startsWith('audio/')) folder = 'audio';
+    else if (file.type.startsWith('video/')) folder = 'videos';
+    else if (file.type.includes('pdf') || file.type.includes('document') || file.type.includes('presentation')) folder = 'documents';
 
-    const result = await uploadFile(formData);
+    // Generar nombre único
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 8);
+    const ext = file.name.split('.').pop() || 'bin';
+    const filename = `${folder}/${timestamp}-${randomStr}.${ext}`;
 
-    if (!result.success) {
-      throw new Error(result.error || 'Error al subir');
+    // Obtener token del servidor
+    const tokenRes = await fetch('/api/get-blob-token');
+    const tokenData = await tokenRes.json();
+    
+    if (!tokenData.token) {
+      throw new Error('No se pudo obtener credenciales de almacenamiento');
     }
 
-    return result.file as UploadedFile;
+    // Subir directamente a Vercel Blob desde el cliente
+    const response = await fetch(`https://blob.vercel-storage.com/${filename}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${tokenData.token}`,
+        'Content-Type': file.type || 'application/octet-stream',
+        'x-content-type': file.type || 'application/octet-stream',
+      },
+      body: file,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      if (response.status === 413 || errorText.includes('too large')) {
+        throw new Error('Archivo demasiado grande. Máximo 50MB para videos, 20MB para otros archivos.');
+      }
+      throw new Error(`Error al subir: ${errorText}`);
+    }
+
+    const blobResult = await response.json();
+    
+    return {
+      url: blobResult.url,
+      key: blobResult.url,
+      name: file.name,
+      size: file.size,
+      type: file.type || 'application/octet-stream',
+    };
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
 
-    const totalFiles = existingFiles.length + uploadedFiles.length + files.length;
-    if (totalFiles > maxFiles) {
-      setError(`Máximo ${maxFiles} archivos`);
-      return;
-    }
-
-    setError(null);
-    setUploading(true);
-
-    const uploadedResults: UploadedFile[] = [];
-
-    try {
-      for (const file of Array.from(files)) {
-        const result = await handleUpload(file);
-        uploadedResults.push(result);
+      const totalFiles = existingFiles.length + uploadedFiles.length + files.length;
+      if (totalFiles > maxFiles) {
+        setError(`Máximo ${maxFiles} archivos permitidos`);
+        return;
       }
 
-      setUploadedFiles(prev => [...prev, ...uploadedResults]);
-      onUploadComplete(uploadedResults);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al subir';
-      setError(msg);
-      onUploadError?.(err instanceof Error ? err : new Error(msg));
-    } finally {
-      setUploading(false);
-    }
+      setError(null);
+      setUploading(true);
+      setProgress(0);
 
-    e.target.value = '';
-  };
+      const uploadedResults: UploadedFile[] = [];
+      const totalSize = Array.from(files).reduce((acc, f) => acc + f.size, 0);
+      let uploadedSize = 0;
+
+      try {
+        for (const file of Array.from(files)) {
+          // Validar tipo antes de subir
+          const allowedTypes = [
+            'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp',
+            'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/aac',
+            'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime',
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'text/plain', 'text/markdown', 'text/csv',
+            'application/json',
+          ];
+
+          const fileName = file.name.toLowerCase();
+          const extraExtensions = ['.md', '.txt', '.json', '.csv', '.note', '.pages', '.numbers', '.key', '.rtf', '.odt', '.zip', '.rar'];
+          const hasExtraExtension = extraExtensions.some(ext => fileName.endsWith(ext));
+
+          if (!allowedTypes.includes(file.type) && !hasExtraExtension) {
+            throw new Error(`Tipo no permitido: ${file.type || file.name}`);
+          }
+
+          // Validar tamaño
+          const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 20 * 1024 * 1024;
+          if (file.size > maxSize) {
+            throw new Error(`${file.name} es muy grande. Máx: ${file.type.startsWith('video/') ? '50MB' : '20MB'}`);
+          }
+
+          const result = await uploadFile(file);
+          uploadedResults.push(result);
+          uploadedSize += file.size;
+          setProgress(Math.round((uploadedSize / totalSize) * 100));
+        }
+
+        setUploadedFiles((prev) => [...prev, ...uploadedResults]);
+        onUploadComplete(uploadedResults);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Error al subir archivos';
+        setError(errorMsg);
+        onUploadError?.(err instanceof Error ? err : new Error(errorMsg));
+      } finally {
+        setUploading(false);
+        setTimeout(() => setProgress(0), 1000);
+      }
+
+      // Reset input
+      e.target.value = '';
+    },
+    [maxFiles, existingFiles.length, uploadedFiles.length, onUploadComplete, onUploadError]
+  );
 
   const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const getAcceptTypes = () => {
-    if (allowedTypes === 'images') return 'image/*';
-    if (allowedTypes === 'audio') return 'audio/*';
-    if (allowedTypes === 'video') return 'video/*';
-    return 'image/*,audio/*,video/*,.pdf,.doc,.docx,.txt,.md';
+  const getFileIcon = (type: string) => {
+    if (type.startsWith('image/')) return <Image className="h-4 w-4 text-blue-400" />;
+    if (type.startsWith('audio/')) return <Music className="h-4 w-4 text-purple-400" />;
+    if (type.startsWith('video/')) return <Video className="h-4 w-4 text-red-400" />;
+    if (type.includes('pdf')) return <FileText className="h-4 w-4 text-red-500" />;
+    if (type.includes('presentation') || type.includes('powerpoint')) return <FileText className="h-4 w-4 text-orange-400" />;
+    if (type.includes('document') || type.includes('word')) return <FileText className="h-4 w-4 text-blue-500" />;
+    return <File className="h-4 w-4 text-slate-400" />;
   };
 
   const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const renderFile = (file: UploadedFile, index: number, isExisting: boolean) => {
-    const isImage = file.type.startsWith('image/');
-    
-    return (
-      <div key={`${isExisting ? 'ex' : 'up'}-${index}`} className="flex items-center gap-2 p-2 bg-slate-700/50 rounded">
-        {isImage ? (
-          <img 
-            src={file.url} 
-            alt={file.name} 
-            className="w-12 h-12 object-cover rounded"
-          />
-        ) : (
-          <File className="h-8 w-8 text-slate-400" />
-        )}
-        <span className="text-sm flex-1 truncate">{file.name}</span>
-        <span className="text-xs text-slate-400">{formatSize(file.size)}</span>
-        {(isExisting ? onRemoveExisting : true) && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => isExisting ? onRemoveExisting?.(index) : removeFile(index)} 
-            className="h-6 w-6 p-0 text-red-400"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-    );
+  const getAcceptTypes = () => {
+    switch (allowedTypes) {
+      case 'images':
+        return 'image/*';
+      case 'audio':
+        return 'audio/*';
+      case 'video':
+        return 'video/*';
+      case 'documents':
+        return '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv,.note,.pages,.numbers,.key,.rtf,.odt,.ods,.odp';
+      default:
+        return 'image/*,audio/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv,.note,.pages,.numbers,.key,.rtf,.odt,.ods,.odp,.zip,.rar';
+    }
+  };
+
+  const getTypeLabel = () => {
+    switch (allowedTypes) {
+      case 'images':
+        return 'Imágenes (JPG, PNG, GIF, WebP) - máx. 20MB';
+      case 'audio':
+        return 'Audio (MP3, WAV, OGG) - máx. 20MB';
+      case 'video':
+        return 'Video (MP4, WebM, MOV) - máx. 50MB';
+      case 'documents':
+        return 'Documentos (PDF, Word, PowerPoint, Excel, Notas, TXT, etc.) - máx. 20MB';
+      default:
+        return 'Imágenes, audio, video, documentos o notas';
+    }
   };
 
   const totalFiles = existingFiles.length + uploadedFiles.length;
 
   return (
     <div className="space-y-3">
+      {/* Área de subida */}
       <div className="border-2 border-dashed border-slate-600 rounded-lg p-4 text-center hover:border-yellow-500 transition-colors">
         <input
           type="file"
@@ -142,40 +228,105 @@ export function FileUpload({
           onChange={handleFileChange}
           disabled={disabled || uploading || totalFiles >= maxFiles}
           className="hidden"
-          id={inputId}
+          id="file-upload"
           accept={getAcceptTypes()}
         />
-        <label 
-          htmlFor={inputId}
-          className={`cursor-pointer flex flex-col items-center gap-2 ${disabled || totalFiles >= maxFiles ? 'opacity-50 cursor-not-allowed' : ''}`}
+        <label
+          htmlFor="file-upload"
+          className={`cursor-pointer flex flex-col items-center gap-2 ${
+            disabled || totalFiles >= maxFiles ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
         >
-          {uploading ? <Loader2 className="h-8 w-8 text-yellow-500 animate-spin" /> : <Upload className="h-8 w-8 text-slate-400" />}
+          {uploading ? (
+            <Loader2 className="h-8 w-8 text-yellow-500 animate-spin" />
+          ) : (
+            <Upload className="h-8 w-8 text-slate-400" />
+          )}
           <span className="text-sm text-slate-400">
-            {uploading ? 'Subiendo...' : 'Haz clic para subir archivos'}
+            {uploading
+              ? 'Subiendo...'
+              : totalFiles >= maxFiles
+              ? 'Límite alcanzado'
+              : 'Haz clic para subir archivos'}
+          </span>
+          <span className="text-xs text-slate-500">
+            {getTypeLabel()}
+          </span>
+          <span className="text-xs text-slate-500">
+            {totalFiles}/{maxFiles} archivos
           </span>
         </label>
       </div>
 
+      {/* Barra de progreso */}
+      {uploading && progress > 0 && (
+        <div className="space-y-1">
+          <Progress value={progress} className="h-2 bg-slate-700" />
+          <p className="text-xs text-slate-400 text-center">{progress}%</p>
+        </div>
+      )}
+
+      {/* Error */}
       {error && (
         <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 p-2 rounded">
-          <AlertCircle className="h-4 w-4" />
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
+      {/* Archivos existentes */}
       {existingFiles.length > 0 && (
         <div className="space-y-2">
-          {existingFiles.map((file, index) => renderFile(file, index, true))}
+          <p className="text-xs text-slate-400">Archivos adjuntos:</p>
+          {existingFiles.map((file, index) => (
+            <div
+              key={`existing-${index}`}
+              className="flex items-center gap-2 p-2 bg-slate-700/50 rounded-lg"
+            >
+              {getFileIcon(file.type)}
+              <span className="text-sm flex-1 truncate text-slate-200">{file.name}</span>
+              <span className="text-xs text-slate-400">{formatSize(file.size)}</span>
+              {onRemoveExisting && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onRemoveExisting(index)}
+                  className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
+      {/* Archivos subidos */}
       {uploadedFiles.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-green-400 flex items-center gap-1">
             <CheckCircle className="h-3 w-3" />
             Subidos ({uploadedFiles.length}):
           </p>
-          {uploadedFiles.map((file, index) => renderFile(file, index, false))}
+          {uploadedFiles.map((file, index) => (
+            <div
+              key={file.key}
+              className="flex items-center gap-2 p-2 bg-green-900/20 border border-green-800/30 rounded-lg"
+            >
+              <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+              {getFileIcon(file.type)}
+              <span className="text-sm flex-1 truncate text-slate-200">{file.name}</span>
+              <span className="text-xs text-slate-400">{formatSize(file.size)}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => removeFile(index)}
+                className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
         </div>
       )}
     </div>
