@@ -7,6 +7,7 @@ import {
   Upload, X, File, Image, Music, FileText, Loader2, 
   CheckCircle, AlertCircle, Trash2, Video 
 } from 'lucide-react';
+import { upload } from '@vercel/blob/client';
 
 export interface UploadedFile {
   url: string;
@@ -41,51 +42,28 @@ export function FileUpload({
   const [error, setError] = useState<string | null>(null);
 
   const uploadFile = async (file: File): Promise<UploadedFile> => {
-    // Determinar carpeta según tipo
     let folder = 'forum';
     if (file.type.startsWith('image/')) folder = 'images';
     else if (file.type.startsWith('audio/')) folder = 'audio';
     else if (file.type.startsWith('video/')) folder = 'videos';
     else if (file.type.includes('pdf') || file.type.includes('document') || file.type.includes('presentation')) folder = 'documents';
 
-    // Generar nombre único
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 8);
     const ext = file.name.split('.').pop() || 'bin';
     const filename = `${folder}/${timestamp}-${randomStr}.${ext}`;
 
-    // Obtener token del servidor
-    const tokenRes = await fetch('/api/get-blob-token');
-    const tokenData = await tokenRes.json();
-    
-    if (!tokenData.token) {
-      throw new Error('No se pudo obtener credenciales de almacenamiento');
-    }
-
-    // Subir directamente a Vercel Blob desde el cliente
-    const response = await fetch(`https://blob.vercel-storage.com/${filename}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${tokenData.token}`,
-        'Content-Type': file.type || 'application/octet-stream',
-        'x-content-type': file.type || 'application/octet-stream',
+    const blob = await upload(filename, file, {
+      access: 'public',
+      handleUploadUrl: '/api/upload-blob',
+      onUploadProgress(progressValue) {
+        setProgress(Math.round(progressValue.percentage));
       },
-      body: file,
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      if (response.status === 413 || errorText.includes('too large')) {
-        throw new Error('Archivo demasiado grande. Máximo 50MB para videos, 20MB para otros archivos.');
-      }
-      throw new Error(`Error al subir: ${errorText}`);
-    }
-
-    const blobResult = await response.json();
     
     return {
-      url: blobResult.url,
-      key: blobResult.url,
+      url: blob.url,
+      key: blob.url,
       name: file.name,
       size: file.size,
       type: file.type || 'application/octet-stream',
@@ -108,13 +86,10 @@ export function FileUpload({
       setProgress(0);
 
       const uploadedResults: UploadedFile[] = [];
-      const totalSize = Array.from(files).reduce((acc, f) => acc + f.size, 0);
-      let uploadedSize = 0;
 
       try {
         for (const file of Array.from(files)) {
-          // Validar tipo antes de subir
-          const allowedTypes = [
+          const allowedTypesArr = [
             'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp',
             'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/aac',
             'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime',
@@ -133,11 +108,10 @@ export function FileUpload({
           const extraExtensions = ['.md', '.txt', '.json', '.csv', '.note', '.pages', '.numbers', '.key', '.rtf', '.odt', '.zip', '.rar'];
           const hasExtraExtension = extraExtensions.some(ext => fileName.endsWith(ext));
 
-          if (!allowedTypes.includes(file.type) && !hasExtraExtension) {
+          if (!allowedTypesArr.includes(file.type) && !hasExtraExtension) {
             throw new Error(`Tipo no permitido: ${file.type || file.name}`);
           }
 
-          // Validar tamaño
           const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 20 * 1024 * 1024;
           if (file.size > maxSize) {
             throw new Error(`${file.name} es muy grande. Máx: ${file.type.startsWith('video/') ? '50MB' : '20MB'}`);
@@ -145,8 +119,6 @@ export function FileUpload({
 
           const result = await uploadFile(file);
           uploadedResults.push(result);
-          uploadedSize += file.size;
-          setProgress(Math.round((uploadedSize / totalSize) * 100));
         }
 
         setUploadedFiles((prev) => [...prev, ...uploadedResults]);
@@ -160,7 +132,6 @@ export function FileUpload({
         setTimeout(() => setProgress(0), 1000);
       }
 
-      // Reset input
       e.target.value = '';
     },
     [maxFiles, existingFiles.length, uploadedFiles.length, onUploadComplete, onUploadError]
@@ -220,7 +191,6 @@ export function FileUpload({
 
   return (
     <div className="space-y-3">
-      {/* Área de subida */}
       <div className="border-2 border-dashed border-slate-600 rounded-lg p-4 text-center hover:border-yellow-500 transition-colors">
         <input
           type="file"
@@ -243,22 +213,13 @@ export function FileUpload({
             <Upload className="h-8 w-8 text-slate-400" />
           )}
           <span className="text-sm text-slate-400">
-            {uploading
-              ? 'Subiendo...'
-              : totalFiles >= maxFiles
-              ? 'Límite alcanzado'
-              : 'Haz clic para subir archivos'}
+            {uploading ? 'Subiendo...' : totalFiles >= maxFiles ? 'Límite alcanzado' : 'Haz clic para subir archivos'}
           </span>
-          <span className="text-xs text-slate-500">
-            {getTypeLabel()}
-          </span>
-          <span className="text-xs text-slate-500">
-            {totalFiles}/{maxFiles} archivos
-          </span>
+          <span className="text-xs text-slate-500">{getTypeLabel()}</span>
+          <span className="text-xs text-slate-500">{totalFiles}/{maxFiles} archivos</span>
         </label>
       </div>
 
-      {/* Barra de progreso */}
       {uploading && progress > 0 && (
         <div className="space-y-1">
           <Progress value={progress} className="h-2 bg-slate-700" />
@@ -266,7 +227,6 @@ export function FileUpload({
         </div>
       )}
 
-      {/* Error */}
       {error && (
         <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 p-2 rounded">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -274,25 +234,16 @@ export function FileUpload({
         </div>
       )}
 
-      {/* Archivos existentes */}
       {existingFiles.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-slate-400">Archivos adjuntos:</p>
           {existingFiles.map((file, index) => (
-            <div
-              key={`existing-${index}`}
-              className="flex items-center gap-2 p-2 bg-slate-700/50 rounded-lg"
-            >
+            <div key={`existing-${index}`} className="flex items-center gap-2 p-2 bg-slate-700/50 rounded-lg">
               {getFileIcon(file.type)}
               <span className="text-sm flex-1 truncate text-slate-200">{file.name}</span>
               <span className="text-xs text-slate-400">{formatSize(file.size)}</span>
               {onRemoveExisting && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRemoveExisting(index)}
-                  className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/20"
-                >
+                <Button variant="ghost" size="sm" onClick={() => onRemoveExisting(index)} className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/20">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
@@ -301,7 +252,6 @@ export function FileUpload({
         </div>
       )}
 
-      {/* Archivos subidos */}
       {uploadedFiles.length > 0 && (
         <div className="space-y-2">
           <p className="text-xs text-green-400 flex items-center gap-1">
@@ -309,20 +259,12 @@ export function FileUpload({
             Subidos ({uploadedFiles.length}):
           </p>
           {uploadedFiles.map((file, index) => (
-            <div
-              key={file.key}
-              className="flex items-center gap-2 p-2 bg-green-900/20 border border-green-800/30 rounded-lg"
-            >
+            <div key={file.key} className="flex items-center gap-2 p-2 bg-green-900/20 border border-green-800/30 rounded-lg">
               <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
               {getFileIcon(file.type)}
               <span className="text-sm flex-1 truncate text-slate-200">{file.name}</span>
               <span className="text-xs text-slate-400">{formatSize(file.size)}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => removeFile(index)}
-                className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/20"
-              >
+              <Button variant="ghost" size="sm" onClick={() => removeFile(index)} className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-900/20">
                 <X className="h-4 w-4" />
               </Button>
             </div>
