@@ -1509,7 +1509,7 @@ Entra en: https://lomejordeespana.es
                             </div>
                           ) : (
                             <>
-                              <ContentWithLinks content={post.content} />
+                              <ContentWithLinks content={post.content} /> 
                               {post.attachments?.length > 0 && (
                                 <div className="flex flex-wrap gap-2 mt-2">
                                   {post.attachments.map(att => renderAttachment(att))}
