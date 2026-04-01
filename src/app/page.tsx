@@ -1725,7 +1725,7 @@ Entra en: https://lomejordeespana.es
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <CardContent className="pt-0 space-y-4">
-                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                          <ContentWithLinks content={msg.content} />
                           {msg.attachments?.length > 0 && (
                             <div className="flex flex-wrap gap-2">
                               {msg.attachments.map(att => renderAttachment(att))}
