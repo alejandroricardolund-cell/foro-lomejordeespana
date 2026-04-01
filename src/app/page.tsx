@@ -1556,7 +1556,7 @@ Entra en: https://lomejordeespana.es
                                       <span className="font-semibold text-sm">{reply.author.name}</span>
                                       <span className="text-xs text-slate-400">{formatDate(reply.createdAt)}</span>
                                     </div>
-                                    <p className="text-sm whitespace-pre-wrap">{reply.content}</p>
+                                    <ContentWithLinks content={reply.content} />
                                     {reply.attachments?.length > 0 && (
                                       <div className="flex flex-wrap gap-2 mt-2">
                                         {reply.attachments.map(att => renderAttachment(att, true))}
