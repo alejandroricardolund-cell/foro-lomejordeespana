@@ -1268,7 +1268,7 @@ Entra en: https://lomejordeespana.es
                                   setShowSearch(false);
                                   setSearchQuery('');
                                 }}>
-                                  {t.title}
+                                  {s.title}
                                 </Button>
                               ))}
                             </div>
