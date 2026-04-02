@@ -8,16 +8,25 @@ const INVIDIOUS_INSTANCES = [
   'invidious.kavin.rocks',
 ];
 
+// Instancias de Piped (alternativa privada a YouTube)
+const PIPED_INSTANCES = [
+  'piped.video',
+  'piped.kavin.rocks',
+  'piped.silkky.cloud',
+];
+
 /**
- * Convierte un enlace de YouTube a una instancia privada (Invidious)
+ * Convierte un enlace de YouTube a una instancia privada (Invidious/Piped)
  */
 export function convertToPrivateLink(url: string): string {
   try {
     const urlObj = new URL(url);
     
+    // YouTube
     if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be')) {
       const videoId = extractYouTubeVideoId(url);
       if (videoId) {
+        // Usar Invidious
         const instance = INVIDIOUS_INSTANCES[0];
         return `https://${instance}/watch?v=${videoId}`;
       }
@@ -43,18 +52,22 @@ export function extractYouTubeVideoId(url: string): string | null {
   try {
     const urlObj = new URL(url);
     
+    // Formato youtube.com/watch?v=xxx
     if (urlObj.searchParams.has('v')) {
       return urlObj.searchParams.get('v');
     }
     
+    // Formato youtu.be/xxx
     if (urlObj.hostname === 'youtu.be') {
       return urlObj.pathname.slice(1).split('?')[0];
     }
     
+    // Formato youtube.com/embed/xxx
     if (urlObj.pathname.startsWith('/embed/')) {
       return urlObj.pathname.slice(7);
     }
     
+    // Formato youtube.com/shorts/xxx
     if (urlObj.pathname.startsWith('/shorts/')) {
       return urlObj.pathname.slice(8);
     }
@@ -62,6 +75,27 @@ export function extractYouTubeVideoId(url: string): string | null {
     return null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Detecta si un enlace es de una plataforma de video conocida
+ */
+export function isVideoPlatform(url: string): boolean {
+  const videoPlatforms = [
+    'youtube.com', 'youtu.be',
+    'vimeo.com',
+    'rumble.com',
+    'odysee.com',
+    'bitchute.com',
+    'tiktok.com',
+  ];
+  
+  try {
+    const urlObj = new URL(url);
+    return videoPlatforms.some(platform => urlObj.hostname.includes(platform));
+  } catch {
+    return false;
   }
 }
 
@@ -95,7 +129,7 @@ export function isTwitterLink(url: string): boolean {
 export function isExternalLink(url: string): boolean {
   try {
     const urlObj = new URL(url);
-    const foroDomains = ['foro-lomejordeespana.vercel.app', 'localhost'];
+    const foroDomains = ['lomejordeespana.es', 'foro-lomejordeespana.vercel.app', 'localhost'];
     return !foroDomains.some(domain => urlObj.hostname.includes(domain));
   } catch {
     return false;
@@ -134,4 +168,39 @@ export function getPlatformName(url: string): string {
   } catch {
     return 'sitio externo';
   }
+}
+
+/**
+ * Procesa el contenido de un post/mensaje para detectar enlaces
+ * y convertirlos a formato seguro con advertencia
+ */
+export function processContentWithLinks(content: string): Array<{
+  type: 'text' | 'link';
+  content: string;
+  url?: string;
+  platform?: string;
+  isYouTube?: boolean;
+  isTwitter?: boolean;
+}> {
+  // Regex para detectar URLs
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = content.split(urlRegex);
+  
+  return parts.map(part => {
+    if (part.match(urlRegex)) {
+      const url = part;
+      return {
+        type: 'link' as const,
+        content: url,
+        url: url,
+        platform: getPlatformName(url),
+        isYouTube: isYouTubeLink(url),
+        isTwitter: isTwitterLink(url),
+      };
+    }
+    return {
+      type: 'text' as const,
+      content: part,
+    };
+  });
 }
