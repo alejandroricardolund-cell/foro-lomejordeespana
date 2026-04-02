@@ -125,24 +125,17 @@ interface SearchResult {
 type View = 'login' | 'forum' | 'topic' | 'subtopic' | 'chat' | 'admin' | 'profile' | 'messages';
 
 export default function ForumPage() {
-  // Estados de autenticación
   const [user, setUser] = useState<User | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [needsInit, setNeedsInit] = useState(false);
-  
-  // Estados de login
   const [accessKey, setAccessKey] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [waitTime, setWaitTime] = useState(0);
   const [blocked, setBlocked] = useState(false);
   const [attemptsLeft, setAttemptsLeft] = useState(3);
-  
-  // Estados de navegación
   const [view, setView] = useState<View>('forum');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  
-  // Datos
   const [topics, setTopics] = useState<Topic[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [selectedSubtopic, setSelectedSubtopic] = useState<Subtopic | null>(null);
@@ -153,8 +146,6 @@ export default function ForumPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [allMembers, setAllMembers] = useState<Member[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  
-  // Estados de formularios
   const [newTopicName, setNewTopicName] = useState('');
   const [newTopicDesc, setNewTopicDesc] = useState('');
   const [newSubtopicName, setNewSubtopicName] = useState('');
@@ -165,8 +156,6 @@ export default function ForumPage() {
   const [newMessageContent, setNewMessageContent] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
-  
-  // Estados de UI
   const [editingPost, setEditingPost] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [showNewTopic, setShowNewTopic] = useState(false);
@@ -178,43 +167,28 @@ export default function ForumPage() {
   const [profileEmail, setProfileEmail] = useState('');
   const [newKeyGenerated, setNewKeyGenerated] = useState('');
   const [loading, setLoading] = useState(false);
-  
-  // Estados de edición
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
   const [editingSubtopic, setEditingSubtopic] = useState<Subtopic | null>(null);
   const [editTopicName, setEditTopicName] = useState('');
   const [editTopicDesc, setEditTopicDesc] = useState('');
   const [editSubtopicName, setEditSubtopicName] = useState('');
-  
-  // Estados de respuestas
   const [replyingTo, setReplyingTo] = useState<Post | null>(null);
   const [replyContent, setReplyContent] = useState('');
-  
-  // Estados de archivos adjuntos
   const [postAttachments, setPostAttachments] = useState<UploadedFile[]>([]);
   const [chatAttachments, setChatAttachments] = useState<UploadedFile[]>([]);
   const [messageAttachments, setMessageAttachments] = useState<UploadedFile[]>([]);
-  
-  // Estados de búsqueda
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<{ topics: SearchResult[]; subtopics: SearchResult[]; posts: SearchResult[] } | null>(null);
   const [showSearch, setShowSearch] = useState(false);
-  
-  // Estados de mensajes
   const [messageTab, setMessageTab] = useState<'received' | 'sent'>('received');
-  
-  // Estados para acordeones
   const [expandedPosts, setExpandedPosts] = useState<Set<string>>(new Set());
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
   const [showNewPostForm, setShowNewPostForm] = useState(false);
-  
-  // Estado para mostrar clave de invitado
   const [invitedUserKey, setInvitedUserKey] = useState<{name: string; email: string; accessKey: string} | null>(null);
   const [copied, setCopied] = useState(false);
   
   const chatRef = useRef<HTMLDivElement>(null);
   
-  // Funciones de datos (definidas primero)
   const loadTopics = async () => {
     try {
       const res = await fetch('/api/topics');
@@ -245,7 +219,6 @@ export default function ForumPage() {
     }
   };
 
-  // Funciones de autenticación (definidas antes de usarlas en useEffect)
   const checkSession = async () => {
     try {
       const res = await fetch('/api/auth/session');
@@ -296,14 +269,11 @@ export default function ForumPage() {
     }
   }, [chatMessages]);
   
-  // Manejar el botón "atrás" del navegador
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       if (event.state && event.state.view) {
         const newView = event.state.view;
         setView(newView);
-        
-        // Actualizar selectedTopic y selectedSubtopic según el estado
         if (newView === 'forum') {
           setSelectedTopic(null);
           setSelectedSubtopic(null);
@@ -312,7 +282,6 @@ export default function ForumPage() {
           if (topic) setSelectedTopic(topic);
           setSelectedSubtopic(null);
         } else if (newView === 'subtopic' && event.state.subtopicId) {
-          // Buscar el subtopic en los topics
           for (const t of topics) {
             const st = t.subtopics.find(s => s.id === event.state.subtopicId);
             if (st) {
@@ -323,32 +292,24 @@ export default function ForumPage() {
           }
         }
       } else {
-        // Si no hay estado, volver al foro
         if (user) {
           setView('forum');
           setSelectedTopic(null);
           setSelectedSubtopic(null);
-          // Asegurar que hay un estado en el historial
           window.history.pushState({ view: 'forum' }, '', window.location.pathname);
         }
       }
     };
-    
     window.addEventListener('popstate', handlePopState);
-    
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
+    return () => window.removeEventListener('popstate', handlePopState);
   }, [user, topics]);
 
   const handleInit = async () => {
     if (!confirm('¿Desea inicializar el sistema? Se creará una cuenta de administrador.')) return;
-    
     setLoading(true);
     try {
       const res = await fetch('/api/init', { method: 'POST' });
       const data = await res.json();
-      
       if (data.success) {
         alert(`¡Administrador creado!\n\nSu clave de acceso es: ${data.accessKey}\n\n¡GUARDE ESTA CLAVE EN UN LUGAR SEGURO!`);
         setNeedsInit(false);
@@ -364,28 +325,22 @@ export default function ForumPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (blocked || waitTime > 0) return;
-    
     setLoginLoading(true);
     setLoginError('');
-
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accessKey: accessKey.toUpperCase() })
       });
-
       const data = await res.json();
-
       if (data.success) {
         setUser(data.user);
         setProfileName(data.user.name);
         setProfileEmail(data.user.email);
         loadTopics();
         loadAllMembers();
-        if (data.user.role === 'admin') {
-          loadMembers();
-        }
+        if (data.user.role === 'admin') loadMembers();
       } else {
         setLoginError(data.error || 'Clave incorrecta');
         if (data.waitTime) setWaitTime(data.waitTime);
@@ -398,7 +353,6 @@ export default function ForumPage() {
     } catch (e) {
       setLoginError('Error de conexión');
     }
-    
     setLoginLoading(false);
   };
 
@@ -408,7 +362,6 @@ export default function ForumPage() {
     setView('forum');
   };
 
-  // Funciones de datos adicionales
   const loadPosts = async (subtopicId: string) => {
     try {
       const res = await fetch(`/api/posts?subtopicId=${subtopicId}`);
@@ -450,7 +403,6 @@ export default function ForumPage() {
     }
   };
   
-  // Acciones de navegación
   const goToTopic = (topic: Topic) => {
     setSelectedTopic(topic);
     loadChat(topic.id);
@@ -479,9 +431,7 @@ export default function ForumPage() {
     window.history.pushState({ view: 'admin' }, '');
   };
 
-  const goToProfile = () => {
-    setShowProfile(true);
-  };
+  const goToProfile = () => setShowProfile(true);
 
   const goToMessages = () => {
     loadMessages();
@@ -497,7 +447,6 @@ export default function ForumPage() {
     window.history.pushState({ view: 'forum' }, '');
   };
 
-  // Acciones de contenido
   const createTopic = async () => {
     if (!newTopicName.trim()) return;
     setLoading(true);
@@ -761,9 +710,7 @@ export default function ForumPage() {
   const deleteMessage = async (id: string) => {
     if (!confirm('¿Eliminar este mensaje?')) return;
     try {
-      await fetch(`/api/messages/${id}?userId=${user?.id}`, {
-        method: 'DELETE'
-      });
+      await fetch(`/api/messages/${id}?userId=${user?.id}`, { method: 'DELETE' });
       loadMessages();
       loadSentMessages();
     } catch (e) {
@@ -810,7 +757,6 @@ export default function ForumPage() {
     }
   };
 
-  // Gestión de usuarios (admin)
   const toggleUserActive = async (userId: string) => {
     try {
       await fetch('/api/admin/users', {
@@ -888,7 +834,6 @@ export default function ForumPage() {
     }
   };
 
-  // Búsqueda
   const handleSearch = async () => {
     if (!searchQuery.trim() || searchQuery.length < 2) {
       setSearchResults(null);
@@ -904,7 +849,6 @@ export default function ForumPage() {
     }
   };
 
-  // Formatear fecha
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('es-ES', {
       day: '2-digit',
@@ -915,7 +859,6 @@ export default function ForumPage() {
     });
   };
   
-  // Función para renderizar attachments correctamente
   const renderAttachment = (att: { id: string; url: string; name: string; size: number; type: string }, isCompact: boolean = false) => {
     const isImage = att.type.startsWith('image/');
     const isVideo = att.type.startsWith('video/');
@@ -927,7 +870,6 @@ export default function ForumPage() {
       return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     };
 
-    // Función para obtener URL del proxy (para servir con Content-Type correcto)
     const getProxyUrl = (url: string) => `/api/file?url=${encodeURIComponent(url)}`;
 
     if (isImage) {
@@ -977,7 +919,6 @@ export default function ForumPage() {
       );
     } 
     
-    // Otros archivos (PDF, etc): abrir en nueva pestaña con proxy
     return (
       <a
         key={att.id}
@@ -995,32 +936,28 @@ export default function ForumPage() {
     );
   };
 
-  // Verificar si usuario está en línea
   const isUserOnline = (lastActiveAt?: string) => {
     if (!lastActiveAt) return false;
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     return new Date(lastActiveAt) > fiveMinutesAgo;
   };
   
-  // Generar mensaje para compartir
   const getInvitationMessage = () => {
     if (!invitedUserKey) return '';
     return `¡Has sido invitado al foro "Lo Mejor de España"!
 
 Tu clave de acceso es: ${invitedUserKey.accessKey}
 
-Entra en: https://lomejordeespana.es
+Entra en: https://xn--lomejordeespaa-2nb.es
 
 ¡Te esperamos!`;
   };
 
-  // Función para abrir el diálogo de nuevo mensaje y cargar miembros
   const handleOpenNewMessage = () => {
     loadAllMembers();
     setShowNewMessage(true);
   };
 
-  // RENDER PRINCIPAL
   if (checkingSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -1029,7 +966,6 @@ Entra en: https://lomejordeespana.es
     );
   }
 
-  // Vista de Login
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
@@ -1113,12 +1049,9 @@ Entra en: https://lomejordeespana.es
       </div>
     );
   }
-  
-  // Vista del Foro (logueado)
-  return (
+    return (
     <>
     <div className="min-h-screen bg-slate-900 text-white flex">
-      {/* Sidebar */}
       <div className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-slate-800 border-r border-slate-700 flex flex-col transition-all duration-300`}>
         <div className="p-4 border-b border-slate-700 flex items-center justify-between">
           {sidebarOpen && (
@@ -1132,20 +1065,12 @@ Entra en: https://lomejordeespana.es
         </div>
         
         <nav className="flex-1 p-2 space-y-1">
-          <Button 
-            variant={view === 'forum' ? 'secondary' : 'ghost'} 
-            className="w-full justify-start gap-2"
-            onClick={() => setView('forum')}
-          >
+          <Button variant={view === 'forum' ? 'secondary' : 'ghost'} className="w-full justify-start gap-2" onClick={() => setView('forum')}>
             <Home className="h-4 w-4" />
             {sidebarOpen && 'Inicio'}
           </Button>
           
-          <Button 
-            variant={view === 'messages' ? 'secondary' : 'ghost'} 
-            className="w-full justify-start gap-2 relative"
-            onClick={goToMessages}
-          >
+          <Button variant={view === 'messages' ? 'secondary' : 'ghost'} className="w-full justify-start gap-2 relative" onClick={goToMessages}>
             <Mail className="h-4 w-4" />
             {sidebarOpen && 'Mensajes'}
             {unreadCount > 0 && (
@@ -1156,11 +1081,7 @@ Entra en: https://lomejordeespana.es
           </Button>
           
           {user.role === 'admin' && (
-            <Button 
-              variant={view === 'admin' ? 'secondary' : 'ghost'} 
-              className="w-full justify-start gap-2"
-              onClick={goToAdmin}
-            >
+            <Button variant={view === 'admin' ? 'secondary' : 'ghost'} className="w-full justify-start gap-2" onClick={goToAdmin}>
               <Users className="h-4 w-4" />
               {sidebarOpen && 'Administrar'}
             </Button>
@@ -1168,29 +1089,19 @@ Entra en: https://lomejordeespana.es
         </nav>
         
         <div className="p-2 border-t border-slate-700 space-y-1">
-          <Button 
-            variant="ghost" 
-            className="w-full justify-start gap-2"
-            onClick={goToProfile}
-          >
+          <Button variant="ghost" className="w-full justify-start gap-2" onClick={goToProfile}>
             <Settings className="h-4 w-4" />
             {sidebarOpen && 'Mi Perfil'}
           </Button>
           
-          <Button 
-            variant="ghost" 
-            className="w-full justify-start gap-2 text-red-400 hover:text-red-300"
-            onClick={handleLogout}
-          >
+          <Button variant="ghost" className="w-full justify-start gap-2 text-red-400 hover:text-red-300" onClick={handleLogout}>
             <LogOut className="h-4 w-4" />
             {sidebarOpen && 'Salir'}
           </Button>
         </div>
       </div>
 
-      {/* Contenido principal */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
         <header className="bg-slate-800/50 border-b border-slate-700 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -1208,14 +1119,11 @@ Entra en: https://lomejordeespana.es
                   {view === 'admin' && 'Administración'}
                   {view === 'messages' && 'Mensajes Privados'}
                 </h2>
-                <p className="text-xs text-slate-400">
-                  Bienvenido, {user.name}
-                </p>
+                <p className="text-xs text-slate-400">Bienvenido, {user.name}</p>
               </div>
             </div>
             
             <div className="flex items-center gap-2">
-              {/* Búsqueda */}
               <div className="relative">
                 <Input
                   type="text"
@@ -1303,9 +1211,8 @@ Entra en: https://lomejordeespana.es
             </div>
           </div>
         </header>
-                {/* Contenido */}
+
         <main className="flex-1 overflow-y-auto p-4">
-          {/* VISTA: Foro principal */}
           {view === 'forum' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -1317,113 +1224,60 @@ Entra en: https://lomejordeespana.es
                 )}
               </div>
               
-              {/* Formulario nuevo tema */}
-              {showNewTopic && (
+              {topics.length === 0 ? (
                 <Card className="bg-slate-800/50 border-slate-700">
-                  <CardContent className="p-4 space-y-3">
-                    <Input
-                      placeholder="Nombre del tema"
-                      value={newTopicName}
-                      onChange={(e) => setNewTopicName(e.target.value)}
-                      className="bg-slate-700/50 border-slate-600"
-                    />
-                    <Textarea
-                      placeholder="Descripción (opcional)"
-                      value={newTopicDesc}
-                      onChange={(e) => setNewTopicDesc(e.target.value)}
-                      className="bg-slate-700/50 border-slate-600"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => {
-                        setShowNewTopic(false);
-                        setNewTopicName('');
-                        setNewTopicDesc('');
-                      }}>Cancelar</Button>
-                      <Button onClick={createTopic} disabled={loading || !newTopicName.trim()} className="bg-gradient-to-r from-red-600 to-yellow-600">
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                        Crear
-                      </Button>
-                    </div>
+                  <CardContent className="p-8 text-center">
+                    <p className="text-slate-400">No hay temas todavía.</p>
+                    {user.role === 'admin' && (
+                      <p className="text-sm text-slate-500 mt-2">Crea el primer tema usando el botón de arriba.</p>
+                    )}
                   </CardContent>
                 </Card>
-              )}
-              
-              {/* Lista de temas */}
-              <div className="space-y-3">
-                {topics.length === 0 ? (
-                  <Card className="bg-slate-800/50 border-slate-700">
-                    <CardContent className="p-8 text-center">
-                      <p className="text-slate-400">No hay temas todavía.</p>
-                      {user.role === 'admin' && (
-                        <p className="text-sm text-slate-500 mt-2">Crea el primer tema usando el botón de arriba.</p>
+              ) : (
+                topics.map(topic => (
+                  <Card key={topic.id} className="bg-slate-800/50 border-slate-700 hover:border-yellow-500/50 transition-colors">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 cursor-pointer" onClick={() => goToTopic(topic)}>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-lg">{topic.name}</h4>
+                            <Badge variant="secondary" className="text-xs">{topic._count.subtopics} subtemas</Badge>
+                          </div>
+                          {topic.description && <p className="text-sm text-slate-400 mt-1">{topic.description}</p>}
+                          <p className="text-xs text-slate-500 mt-2">Creado por {topic.creator.name}</p>
+                        </div>
+                        {user.role === 'admin' && (
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => {
+                              setEditingTopic(topic);
+                              setEditTopicName(topic.name);
+                              setEditTopicDesc(topic.description || '');
+                            }}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => deleteTopic(topic.id)} className="text-red-400 hover:text-red-300">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      {editingTopic?.id === topic.id && (
+                        <div className="mt-3 pt-3 border-t border-slate-700 space-y-2">
+                          <Input value={editTopicName} onChange={(e) => setEditTopicName(e.target.value)} className="bg-slate-700/50 border-slate-600" />
+                          <Textarea value={editTopicDesc} onChange={(e) => setEditTopicDesc(e.target.value)} className="bg-slate-700/50 border-slate-600" />
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setEditingTopic(null)}>Cancelar</Button>
+                            <Button size="sm" onClick={editTopic} disabled={loading} className="bg-gradient-to-r from-red-600 to-yellow-600">Guardar</Button>
+                          </div>
+                        </div>
                       )}
                     </CardContent>
                   </Card>
-                ) : (
-                  topics.map(topic => (
-                    <Card key={topic.id} className="bg-slate-800/50 border-slate-700 hover:border-yellow-500/50 transition-colors">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 cursor-pointer" onClick={() => goToTopic(topic)}>
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-semibold text-lg">{topic.name}</h4>
-                              <Badge variant="secondary" className="text-xs">
-                                {topic._count.subtopics} subtemas
-                              </Badge>
-                            </div>
-                            {topic.description && (
-                              <p className="text-sm text-slate-400 mt-1">{topic.description}</p>
-                            )}
-                            <p className="text-xs text-slate-500 mt-2">
-                              Creado por {topic.creator.name}
-                            </p>
-                          </div>
-                          {user.role === 'admin' && (
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => {
-                                setEditingTopic(topic);
-                                setEditTopicName(topic.name);
-                                setEditTopicDesc(topic.description || '');
-                              }}>
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => deleteTopic(topic.id)} className="text-red-400 hover:text-red-300">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Formulario editar tema */}
-                        {editingTopic?.id === topic.id && (
-                          <div className="mt-3 pt-3 border-t border-slate-700 space-y-2">
-                            <Input
-                              value={editTopicName}
-                              onChange={(e) => setEditTopicName(e.target.value)}
-                              className="bg-slate-700/50 border-slate-600"
-                            />
-                            <Textarea
-                              value={editTopicDesc}
-                              onChange={(e) => setEditTopicDesc(e.target.value)}
-                              className="bg-slate-700/50 border-slate-600"
-                            />
-                            <div className="flex justify-end gap-2">
-                              <Button variant="outline" size="sm" onClick={() => setEditingTopic(null)}>Cancelar</Button>
-                              <Button size="sm" onClick={editTopic} disabled={loading} className="bg-gradient-to-r from-red-600 to-yellow-600">
-                                Guardar
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
+                ))
+              )}
             </div>
           )}
 
-          {/* VISTA: Tema (subtemas y chat) */}
           {view === 'topic' && selectedTopic && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -1438,97 +1292,57 @@ Entra en: https://lomejordeespana.es
                 </div>
               </div>
               
-              {/* Formulario nuevo subtema */}
-              {showNewSubtopic && (
+              {selectedTopic.subtopics.length === 0 ? (
                 <Card className="bg-slate-800/50 border-slate-700">
-                  <CardContent className="p-4 space-y-3">
-                    <Input
-                      placeholder="Nombre del subtema"
-                      value={newSubtopicName}
-                      onChange={(e) => setNewSubtopicName(e.target.value)}
-                      className="bg-slate-700/50 border-slate-600"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => {
-                        setShowNewSubtopic(false);
-                        setNewSubtopicName('');
-                      }}>Cancelar</Button>
-                      <Button onClick={createSubtopic} disabled={loading || !newSubtopicName.trim()} className="bg-gradient-to-r from-red-600 to-yellow-600">
-                        Crear
-                      </Button>
-                    </div>
+                  <CardContent className="p-6 text-center">
+                    <p className="text-slate-400">No hay subtemas en este tema.</p>
+                    <p className="text-sm text-slate-500 mt-2">Crea el primer subtema para empezar a discutir.</p>
                   </CardContent>
                 </Card>
-              )}
-              
-              {/* Lista de subtemas */}
-              <div className="space-y-2">
-                {selectedTopic.subtopics.length === 0 ? (
-                  <Card className="bg-slate-800/50 border-slate-700">
-                    <CardContent className="p-6 text-center">
-                      <p className="text-slate-400">No hay subtemas en este tema.</p>
-                      <p className="text-sm text-slate-500 mt-2">Crea el primer subtema para empezar a discutir.</p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  selectedTopic.subtopics.map(subtopic => (
-                    <Card key={subtopic.id} className="bg-slate-800/50 border-slate-700 hover:border-yellow-500/50 transition-colors cursor-pointer" onClick={() => goToSubtopic(subtopic)}>
-                      <CardContent className="p-3 flex items-center justify-between">
-                        <div>
-                          <h4 className="font-medium">{subtopic.name}</h4>
-                          <p className="text-xs text-slate-400">
-                            {subtopic._count.posts} publicaciones • Creado por {subtopic.creator.name}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <ChevronRight className="h-4 w-4 text-slate-400" />
-                          {user.role === 'admin' && (
-                            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                              <Button variant="ghost" size="sm" onClick={() => {
-                                setEditingSubtopic(subtopic);
-                                setEditSubtopicName(subtopic.name);
-                              }}>
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => deleteSubtopic(subtopic.id)} className="text-red-400 hover:text-red-300">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                      
-                      {/* Formulario editar subtema */}
-                      {editingSubtopic?.id === subtopic.id && (
-                        <div className="px-3 pb-3 space-y-2">
-                          <Input
-                            value={editSubtopicName}
-                            onChange={(e) => setEditSubtopicName(e.target.value)}
-                            className="bg-slate-700/50 border-slate-600"
-                          />
-                          <div className="flex justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={() => setEditingSubtopic(null)}>Cancelar</Button>
-                            <Button size="sm" onClick={editSubtopic} disabled={loading} className="bg-gradient-to-r from-red-600 to-yellow-600">
-                              Guardar
+              ) : (
+                selectedTopic.subtopics.map(subtopic => (
+                  <Card key={subtopic.id} className="bg-slate-800/50 border-slate-700 hover:border-yellow-500/50 transition-colors cursor-pointer" onClick={() => goToSubtopic(subtopic)}>
+                    <CardContent className="p-3 flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium">{subtopic.name}</h4>
+                        <p className="text-xs text-slate-400">{subtopic._count.posts} publicaciones • Creado por {subtopic.creator.name}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ChevronRight className="h-4 w-4 text-slate-400" />
+                        {user.role === 'admin' && (
+                          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="sm" onClick={() => {
+                              setEditingSubtopic(subtopic);
+                              setEditSubtopicName(subtopic.name);
+                            }}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => deleteSubtopic(subtopic.id)} className="text-red-400 hover:text-red-300">
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
+                        )}
+                      </div>
+                    </CardContent>
+                    {editingSubtopic?.id === subtopic.id && (
+                      <div className="px-3 pb-3 space-y-2">
+                        <Input value={editSubtopicName} onChange={(e) => setEditSubtopicName(e.target.value)} className="bg-slate-700/50 border-slate-600" />
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setEditingSubtopic(null)}>Cancelar</Button>
+                          <Button size="sm" onClick={editSubtopic} disabled={loading} className="bg-gradient-to-r from-red-600 to-yellow-600">Guardar</Button>
                         </div>
-                      )}
-                    </Card>
-                  ))
-                )}
-              </div>
+                      </div>
+                    )}
+                  </Card>
+                ))
+              )}
             </div>
           )}
-
-          {/* VISTA: Chat del tema */}
-          {view === 'chat' && selectedTopic && (
+                    {view === 'chat' && selectedTopic && (
             <div className="flex flex-col h-[calc(100vh-180px)]">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">Chat: {selectedTopic.name}</h3>
-                <Button variant="outline" size="sm" onClick={() => setView('topic')}>
-                  Volver a subtemas
-                </Button>
+                <Button variant="outline" size="sm" onClick={() => setView('topic')}>Volver a subtemas</Button>
               </div>
               
               <div ref={chatRef} className="flex-1 overflow-y-auto space-y-3 mb-4 p-2 bg-slate-800/30 rounded-lg">
@@ -1579,7 +1393,6 @@ Entra en: https://lomejordeespana.es
             </div>
           )}
 
-          {/* VISTA: Subtema (publicaciones) */}
           {view === 'subtopic' && selectedSubtopic && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -1589,7 +1402,6 @@ Entra en: https://lomejordeespana.es
                 </Button>
               </div>
               
-              {/* Formulario nueva publicación */}
               {showNewPostForm && (
                 <Card className="bg-slate-800/50 border-slate-700">
                   <CardContent className="p-4 space-y-3">
@@ -1605,23 +1417,15 @@ Entra en: https://lomejordeespana.es
                       onRemoveExisting={(index) => setPostAttachments(prev => prev.filter((_, i) => i !== index))}
                     />
                     <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => {
-                        setShowNewPostForm(false);
-                        setNewPostContent('');
-                        setPostAttachments([]);
-                      }}>
-                        Cancelar
-                      </Button>
+                      <Button variant="outline" onClick={() => { setShowNewPostForm(false); setNewPostContent(''); setPostAttachments([]); }}>Cancelar</Button>
                       <Button onClick={createPost} disabled={loading || (!newPostContent.trim() && postAttachments.length === 0)} className="bg-gradient-to-r from-red-600 to-yellow-600">
-                        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Publicar
+                        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Publicar
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
               )}
               
-              {/* Lista de publicaciones */}
               <div className="space-y-4">
                 {posts.filter(p => !p.parentId).length === 0 ? (
                   <Card className="bg-slate-800/50 border-slate-700">
@@ -1646,10 +1450,7 @@ Entra en: https://lomejordeespana.es
                           </div>
                           {post.author.id === user.id && (
                             <div className="flex gap-1">
-                              <Button variant="ghost" size="sm" onClick={() => {
-                                setEditingPost(post.id);
-                                setEditContent(post.content);
-                              }}>
+                              <Button variant="ghost" size="sm" onClick={() => { setEditingPost(post.id); setEditContent(post.content); }}>
                                 <Edit className="h-4 w-4" />
                               </Button>
                               <Button variant="ghost" size="sm" onClick={() => deletePost(post.id)} className="text-red-400 hover:text-red-300">
@@ -1661,11 +1462,7 @@ Entra en: https://lomejordeespana.es
                         
                         {editingPost === post.id ? (
                           <div className="space-y-2">
-                            <Textarea
-                              value={editContent}
-                              onChange={(e) => setEditContent(e.target.value)}
-                              className="bg-slate-700/50 border-slate-600"
-                            />
+                            <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="bg-slate-700/50 border-slate-600" />
                             <div className="flex justify-end gap-2">
                               <Button variant="outline" size="sm" onClick={() => setEditingPost(null)}>Cancelar</Button>
                               <Button size="sm" onClick={() => updatePost(post.id)} className="bg-gradient-to-r from-red-600 to-yellow-600">Guardar</Button>
@@ -1682,69 +1479,33 @@ Entra en: https://lomejordeespana.es
                           </>
                         )}
                         
-                        {/* Likes */}
                         <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-700">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleLike(post.id, 'like')}
-                            className={post.userLike === 'like' ? 'text-green-400' : ''}
-                          >
-                            <ThumbsUp className="h-4 w-4 mr-1" />
-                            {post.likesCount}
+                          <Button variant="ghost" size="sm" onClick={() => handleLike(post.id, 'like')} className={post.userLike === 'like' ? 'text-green-400' : ''}>
+                            <ThumbsUp className="h-4 w-4 mr-1" />{post.likesCount}
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleLike(post.id, 'dislike')}
-                            className={post.userLike === 'dislike' ? 'text-red-400' : ''}
-                          >
-                            <ThumbsDown className="h-4 w-4 mr-1" />
-                            {post.dislikesCount}
+                          <Button variant="ghost" size="sm" onClick={() => handleLike(post.id, 'dislike')} className={post.userLike === 'dislike' ? 'text-red-400' : ''}>
+                            <ThumbsDown className="h-4 w-4 mr-1" />{post.dislikesCount}
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setReplyingTo(post);
-                              setReplyContent('');
-                            }}
-                          >
-                            <Reply className="h-4 w-4 mr-1" />
-                            Responder ({post.repliesCount})
+                          <Button variant="ghost" size="sm" onClick={() => { setReplyingTo(post); setReplyContent(''); }}>
+                            <Reply className="h-4 w-4 mr-1" />Responder ({post.repliesCount})
                           </Button>
                         </div>
                         
-                        {/* Formulario de respuesta */}
                         {replyingTo?.id === post.id && (
                           <div className="mt-3 pt-3 border-t border-slate-700 space-y-2">
-                            <Textarea
-                              placeholder="Escribe tu respuesta..."
-                              value={replyContent}
-                              onChange={(e) => setReplyContent(e.target.value)}
-                              className="min-h-[80px] bg-slate-700/50 border-slate-600"
-                            />
+                            <Textarea placeholder="Escribe tu respuesta..." value={replyContent} onChange={(e) => setReplyContent(e.target.value)} className="min-h-[80px] bg-slate-700/50 border-slate-600" />
                             <FileUpload
                               onUploadComplete={(files) => setPostAttachments(prev => [...prev, ...files])}
                               existingFiles={postAttachments}
                               onRemoveExisting={(index) => setPostAttachments(prev => prev.filter((_, i) => i !== index))}
                             />
                             <div className="flex justify-end gap-2 mt-2">
-                              <Button size="sm" variant="outline" onClick={() => {
-                                setReplyingTo(null);
-                                setReplyContent('');
-                                setPostAttachments([]);
-                              }}>
-                                Cancelar
-                              </Button>
-                              <Button size="sm" onClick={createReply} disabled={loading} className="bg-gradient-to-r from-red-600 to-yellow-600">
-                                Responder
-                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => { setReplyingTo(null); setReplyContent(''); setPostAttachments([]); }}>Cancelar</Button>
+                              <Button size="sm" onClick={createReply} disabled={loading} className="bg-gradient-to-r from-red-600 to-yellow-600">Responder</Button>
                             </div>
                           </div>
                         )}
                         
-                        {/* Respuestas */}
                         {posts.filter(p => p.parentId === post.id).length > 0 && (
                           <div className="mt-3 pt-3 border-t border-slate-700 space-y-3 pl-4 border-l-2 border-slate-700">
                             {posts.filter(p => p.parentId === post.id).map(reply => (
@@ -1759,10 +1520,7 @@ Entra en: https://lomejordeespana.es
                                   </div>
                                   {reply.author.id === user.id && (
                                     <div className="flex gap-1">
-                                      <Button variant="ghost" size="sm" onClick={() => {
-                                        setEditingPost(reply.id);
-                                        setEditContent(reply.content);
-                                      }}>
+                                      <Button variant="ghost" size="sm" onClick={() => { setEditingPost(reply.id); setEditContent(reply.content); }}>
                                         <Edit className="h-3 w-3" />
                                       </Button>
                                       <Button variant="ghost" size="sm" onClick={() => deletePost(reply.id)} className="text-red-400 hover:text-red-300">
@@ -1773,11 +1531,7 @@ Entra en: https://lomejordeespana.es
                                 </div>
                                 {editingPost === reply.id ? (
                                   <div className="space-y-2">
-                                    <Textarea
-                                      value={editContent}
-                                      onChange={(e) => setEditContent(e.target.value)}
-                                      className="bg-slate-700/50 border-slate-600 text-sm"
-                                    />
+                                    <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="bg-slate-700/50 border-slate-600 text-sm" />
                                     <div className="flex justify-end gap-2">
                                       <Button variant="outline" size="sm" onClick={() => setEditingPost(null)}>Cancelar</Button>
                                       <Button size="sm" onClick={() => updatePost(reply.id)} className="bg-gradient-to-r from-red-600 to-yellow-600">Guardar</Button>
@@ -1804,355 +1558,382 @@ Entra en: https://lomejordeespana.es
               </div>
             </div>
           )}
-                    {/* VISTA: Mensajes privados */}
-          {view === 'messages' && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <Tabs value={messageTab} onValueChange={(v) => setMessageTab(v as 'received' | 'sent')} className="w-auto">
-                  <TabsList className="bg-slate-800">
-                    <TabsTrigger value="received" className="data-[state=active]:bg-slate-700">
-                      Recibidos {unreadCount > 0 && `(${unreadCount})`}
-                    </TabsTrigger>
-                    <TabsTrigger value="sent" className="data-[state=active]:bg-slate-700">
-                      Enviados
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                <Button onClick={handleOpenNewMessage} size="sm" className="bg-gradient-to-r from-red-600 to-yellow-600">
-                  <Plus className="h-4 w-4 mr-1" /> Nuevo Mensaje
-                </Button>
-              </div>
-              
-              {/* Formulario nuevo mensaje */}
-              {showNewMessage && (
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardContent className="p-4 space-y-3">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Para:</label>
-                      <Select value={newMessageRecipient} onValueChange={setNewMessageRecipient}>
-                        <SelectTrigger className="bg-slate-700/50 border-slate-600">
-                          <SelectValue placeholder="Seleccionar destinatario" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-slate-700">
-                          {allMembers.filter(m => m.id !== user.id).map(member => (
-                            <SelectItem key={member.id} value={member.id}>
-                              {member.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Asunto:</label>
-                      <Input
-                        value={newMessageSubject}
-                        onChange={(e) => setNewMessageSubject(e.target.value)}
-                        placeholder="Asunto del mensaje"
-                        className="bg-slate-700/50 border-slate-600"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Mensaje</label>
-                      <Textarea
-                        value={newMessageContent}
-                        onChange={(e) => setNewMessageContent(e.target.value)}
-                        placeholder="Escribe tu mensaje..."
-                        className="min-h-[120px] bg-slate-700/50 border-slate-600"
-                      />
-                    </div>
-                    <FileUpload
-                      onUploadComplete={(files) => setMessageAttachments(prev => [...prev, ...files])}
-                      existingFiles={messageAttachments}
-                      onRemoveExisting={(index) => setMessageAttachments(prev => prev.filter((_, i) => i !== index))}
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => {
-                        setShowNewMessage(false);
-                        setNewMessageRecipient('');
-                        setNewMessageSubject('');
-                        setNewMessageContent('');
-                        setMessageAttachments([]);
-                      }}>
-                        Cancelar
-                      </Button>
-                      <Button onClick={sendMessage} disabled={(!newMessageContent.trim() && messageAttachments.length === 0) || !newMessageRecipient} className="bg-gradient-to-r from-red-600 to-yellow-600">
-                        Enviar
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              
-              {/* Lista de mensajes */}
-              <div className="space-y-2">
-                {messageTab === 'received' && messages.length === 0 && (
-                  <Card className="bg-slate-800/50 border-slate-700">
-                    <CardContent className="p-6 text-center">
-                      <p className="text-slate-400">No tienes mensajes.</p>
-                    </CardContent>
-                  </Card>
-                )}
-                
-                {messageTab === 'sent' && sentMessages.length === 0 && (
-                  <Card className="bg-slate-800/50 border-slate-700">
-                    <CardContent className="p-6 text-center">
-                      <p className="text-slate-400">No has enviado mensajes.</p>
-                    </CardContent>
-                  </Card>
-                )}
-                
-                {(messageTab === 'received' ? messages : sentMessages).map(msg => (
-                  <Collapsible
-                    key={msg.id}
-                    open={expandedMessages.has(msg.id)}
-                    onOpenChange={(open) => {
-                      const newExpanded = new Set(expandedMessages);
-                      if (open) {
-                        newExpanded.add(msg.id);
-                        if (!msg.isRead && messageTab === 'received') {
-                          markAsRead(msg.id);
-                        }
-                      } else {
-                        newExpanded.delete(msg.id);
-                      }
-                      setExpandedMessages(newExpanded);
-                    }}
-                  >
-                    <Card className={`bg-slate-800/50 border-slate-700 ${!msg.isRead && messageTab === 'received' ? 'border-l-4 border-l-yellow-500' : ''}`}>
-                      <CollapsibleTrigger asChild>
-                        <CardContent className="p-4 cursor-pointer hover:bg-slate-700/30">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              {!msg.isRead && messageTab === 'received' && (
-                                <Circle className="h-2 w-2 text-yellow-500 fill-yellow-500" />
-                              )}
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">
-                                    {messageTab === 'received' ? `De: ${msg.sender.name}` : `Para: ${msg.receiver.name}`}
-                                  </span>
-                                  {!msg.isRead && messageTab === 'received' && (
-                                    <Badge className="bg-yellow-600 text-xs">Nuevo</Badge>
-                                  )}
+                                      <div className="space-y-2">
+                              <Textarea
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                className="bg-slate-700/50 border-slate-600"
+                              />
+                              <div className="flex gap-2">
+                                <Button size="sm" onClick={() => updatePost(post.id)}>Guardar</Button>
+                                <Button size="sm" variant="outline" onClick={() => setEditingPost(null)}>Cancelar</Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <ContentWithLinks content={post.content} />
+                              {post.attachments?.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {post.attachments.map(att => renderAttachment(att))}
                                 </div>
-                                <p className="text-sm text-slate-400">{msg.subject}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-slate-400">{formatDate(msg.createdAt)}</span>
-                              {expandedMessages.has(msg.id) ? (
-                                <ChevronUp className="h-4 w-4 text-slate-400" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4 text-slate-400" />
                               )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <div className="px-4 pb-4 border-t border-slate-700 pt-3">
-                          <ContentWithLinks content={msg.content} />
-                          {msg.attachments.length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {msg.attachments.map(att => renderAttachment(att))}
-                            </div>
+                            </>
                           )}
-                          <div className="mt-3 flex justify-end">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => deleteMessage(msg.id)}
-                              className="text-red-400 hover:text-red-300"
-                            >
-                              <Trash2 className="h-4 w-4 mr-1" /> Eliminar
+                          
+                          <div className="flex items-center gap-4 mt-3">
+                            <Button variant="ghost" size="sm" onClick={() => handleLike(post.id, 'like')} className={post.userLike === 'like' ? 'text-green-400' : ''}>
+                              <ThumbsUp className="h-4 w-4 mr-1" /> {post.likesCount}
                             </Button>
-                          </div>
-                        </div>
-                      </CollapsibleContent>
-                    </Card>
-                  </Collapsible>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* VISTA: Administración */}
-          {view === 'admin' && user.role === 'admin' && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Gestión de Usuarios</h3>
-                <Button onClick={() => setShowInviteUser(true)} size="sm" className="bg-gradient-to-r from-red-600 to-yellow-600">
-                  <UserPlus className="h-4 w-4 mr-1" /> Invitar Usuario
-                </Button>
-              </div>
-              
-              {/* Formulario invitar usuario */}
-              {showInviteUser && (
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardContent className="p-4 space-y-3">
-                    <Input
-                      placeholder="Nombre completo"
-                      value={newUserName}
-                      onChange={(e) => setNewUserName(e.target.value)}
-                      className="bg-slate-700/50 border-slate-600"
-                    />
-                    <Input
-                      type="email"
-                      placeholder="Correo electrónico"
-                      value={newUserEmail}
-                      onChange={(e) => setNewUserEmail(e.target.value)}
-                      className="bg-slate-700/50 border-slate-600"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => {
-                        setShowInviteUser(false);
-                        setNewUserName('');
-                        setNewUserEmail('');
-                      }}>Cancelar</Button>
-                      <Button onClick={inviteUser} disabled={loading || !newUserName.trim() || !newUserEmail.trim()} className="bg-gradient-to-r from-red-600 to-yellow-600">
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                        Invitar
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              
-              {/* Clave de invitado generado */}
-              {invitedUserKey && (
-                <Card className="bg-green-900/20 border-green-700">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <CheckCircle className="h-5 w-5 text-green-400 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="font-medium text-green-300">¡Usuario invitado correctamente!</p>
-                        <p className="text-sm text-slate-300 mt-1">
-                          <strong>{invitedUserKey.name}</strong> ({invitedUserKey.email})
-                        </p>
-                        <div className="mt-3 p-3 bg-slate-800 rounded-lg">
-                          <p className="text-sm text-slate-400 mb-1">Clave de acceso:</p>
-                          <div className="flex items-center gap-2">
-                            <code className="text-lg font-mono text-yellow-400">{invitedUserKey.accessKey}</code>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => copyToClipboard(invitedUserKey.accessKey)}
-                            >
-                              {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                            <Button variant="ghost" size="sm" onClick={() => handleLike(post.id, 'dislike')} className={post.userLike === 'dislike' ? 'text-red-400' : ''}>
+                              <ThumbsDown className="h-4 w-4 mr-1" /> {post.dislikesCount}
                             </Button>
-                          </div>
-                        </div>
-                        <div className="mt-3 p-3 bg-slate-800 rounded-lg">
-                          <p className="text-sm text-slate-400 mb-1">Mensaje para compartir:</p>
-                          <pre className="text-xs text-slate-300 whitespace-pre-wrap">{getInvitationMessage()}</pre>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="mt-2"
-                            onClick={() => copyToClipboard(getInvitationMessage())}
-                          >
-                            <Copy className="h-4 w-4 mr-1" /> Copiar mensaje completo
-                          </Button>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-3"
-                          onClick={() => setInvitedUserKey(null)}
-                        >
-                          Cerrar
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              
-              {/* Lista de usuarios */}
-              <div className="space-y-2">
-                {members.length === 0 ? (
-                  <Card className="bg-slate-800/50 border-slate-700">
-                    <CardContent className="p-6 text-center">
-                      <p className="text-slate-400">No hay usuarios registrados.</p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  members.map(member => (
-                    <Card key={member.id} className={`bg-slate-800/50 border-slate-700 ${!member.isActive ? 'opacity-60' : ''}`}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="relative">
-                              <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-yellow-600 rounded-full flex items-center justify-center font-bold">
-                                {member.name.charAt(0).toUpperCase()}
-                              </div>
-                              {isUserOnline(member.lastActiveAt) && (
-                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-800" />
-                              )}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium">{member.name}</p>
-                                {member.role === 'admin' && (
-                                  <Crown className="h-4 w-4 text-yellow-500" />
-                                )}
-                                {!member.isActive && (
-                                  <Badge variant="secondary" className="text-xs bg-red-900/50 text-red-300">Inactivo</Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-slate-400">{member.email}</p>
-                              <p className="text-xs text-slate-500">
-                                Clave: {member.keyIsPrivate ? '••••••••' : member.accessKey}
-                                {!member.keyIsPrivate && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-auto p-0 ml-2 text-xs"
-                                    onClick={() => copyToClipboard(member.accessKey)}
-                                  >
-                                    <Copy className="h-3 w-3 mr-1" /> copiar
-                                  </Button>
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {member.id !== user.id && (
+                            <Button variant="ghost" size="sm" onClick={() => setReplyingTo(post)}>
+                              <Reply className="h-4 w-4 mr-1" /> Responder
+                            </Button>
+                            {post.author.id === user.id && (
                               <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => toggleUserActive(member.id)}
-                                  className={member.isActive ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}
-                                >
-                                  {member.isActive ? (
-                                    <><UserX className="h-4 w-4 mr-1" /> Desactivar</>
-                                  ) : (
-                                    <><UserCheck className="h-4 w-4 mr-1" /> Activar</>
-                                  )}
+                                <Button variant="ghost" size="sm" onClick={() => {
+                                  setEditingPost(post.id);
+                                  setEditContent(post.content);
+                                }}>
+                                  <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => toggleUserRole(member.id)}
-                                >
-                                  {member.role === 'admin' ? 'Quitar admin' : 'Hacer admin'}
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => deleteUser(member.id)}
-                                  className="text-red-400 hover:text-red-300"
-                                >
+                                <Button variant="ghost" size="sm" onClick={() => deletePost(post.id)} className="text-red-400">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </>
                             )}
                           </div>
+                          
+                          {/* Respuestas */}
+                          {post.repliesCount > 0 && (
+                            <div className="mt-4 pl-4 border-l-2 border-slate-700 space-y-4">
+                              {posts.filter(p => p.parentId === post.id).map(reply => (
+                                <div key={reply.id} className="flex items-start gap-3">
+                                  <div className="w-8 h-8 bg-gradient-to-br from-red-500/70 to-yellow-500/70 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <span className="text-sm font-bold">{reply.author.name.charAt(0)}</span>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="font-semibold text-sm">{reply.author.name}</span>
+                                      <span className="text-xs text-slate-400">{formatDate(reply.createdAt)}</span>
+                                    </div>
+                                    <ContentWithLinks content={reply.content} />
+                                    {reply.attachments?.length > 0 && (
+                                      <div className="flex flex-wrap gap-2 mt-2">
+                                        {reply.attachments.map(att => renderAttachment(att, true))}
+                                      </div>
+                                    )}
+                                    <div className="flex items-center gap-4 mt-2">
+                                      <Button variant="ghost" size="sm" onClick={() => handleLike(reply.id, 'like')} className={reply.userLike === 'like' ? 'text-green-400' : ''}>
+                                        <ThumbsUp className="h-3 w-3 mr-1" /> {reply.likesCount}
+                                      </Button>
+                                      <Button variant="ghost" size="sm" onClick={() => handleLike(reply.id, 'dislike')} className={reply.userLike === 'dislike' ? 'text-red-400' : ''}>
+                                        <ThumbsDown className="h-3 w-3 mr-1" /> {reply.dislikesCount}
+                                      </Button>
+                                      {reply.author.id === user.id && (
+                                        <Button variant="ghost" size="sm" onClick={() => deletePost(reply.id)} className="text-red-400">
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Formulario de respuesta */}
+                          {replyingTo?.id === post.id && (
+                            <div className="mt-4 pl-4 border-l-2 border-yellow-500/50">
+                              <Textarea
+                                placeholder="Escribe tu respuesta..."
+                                value={replyContent}
+                                onChange={(e) => setReplyContent(e.target.value)}
+                                className="min-h-[80px] bg-slate-700/50 border-slate-600"
+                              />
+                              <FileUpload
+                                onUploadComplete={(files) => setPostAttachments(prev => [...prev, ...files])}
+                                existingFiles={postAttachments}
+                                onRemoveExisting={(index) => setPostAttachments(prev => prev.filter((_, i) => i !== index))}
+                              />
+                              <div className="flex justify-end gap-2 mt-2">
+                                <Button size="sm" variant="outline" onClick={() => {
+                                  setReplyingTo(null);
+                                  setReplyContent('');
+                                  setPostAttachments([]);
+                                }}>
+                                  Cancelar
+                                </Button>
+                                <Button size="sm" onClick={createReply} disabled={loading || (!replyContent.trim() && postAttachments.length === 0)} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                                  Responder
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                
+                {posts.filter(p => !p.parentId).length === 0 && (
+                  <div className="text-center py-12 text-slate-400">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No hay publicaciones aún</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* VISTA: Chat */}
+          {view === 'chat' && selectedTopic && (
+            <div className="flex flex-col h-[calc(100vh-180px)]">
+              <div className="flex-1 overflow-y-auto space-y-4 p-4 bg-slate-800/30 rounded-lg" ref={chatRef}>
+                {chatMessages.map(msg => (
+                  <div key={msg.id} className={`flex gap-3 ${msg.user.id === user.id ? 'flex-row-reverse' : ''}`}>
+                    <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-yellow-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-bold">{msg.user.name.charAt(0)}</span>
+                    </div>
+                    <div className={`max-w-[70%] ${msg.user.id === user.id ? 'bg-red-600/20' : 'bg-slate-700/50'} rounded-lg p-3`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-sm">{msg.user.name}</span>
+                        <span className="text-xs text-slate-400">{formatDate(msg.createdAt)}</span>
+                      </div>
+                      <ContentWithLinks content={msg.message} />
+                      {msg.attachments?.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {msg.attachments.map(att => renderAttachment(att, true))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                
+                {chatMessages.length === 0 && (
+                  <div className="text-center py-12 text-slate-400">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No hay mensajes en el chat aún</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="mt-4 space-y-2">
+                <div className="flex gap-2">
+                  <Textarea
+                    placeholder="Escribe un mensaje..."
+                    value={newChatMessage}
+                    onChange={(e) => setNewChatMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), sendChatMessage())}
+                    className="min-h-[60px] bg-slate-700/50 border-slate-600"
+                  />
+                  <Button onClick={sendChatMessage} disabled={(!newChatMessage.trim() && chatAttachments.length === 0)} className="bg-gradient-to-r from-red-600 to-yellow-600 self-end">
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+                <FileUpload
+                  onUploadComplete={(files) => setChatAttachments(prev => [...prev, ...files])}
+                  existingFiles={chatAttachments}
+                  onRemoveExisting={(index) => setChatAttachments(prev => prev.filter((_, i) => i !== index))}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* VISTA: Mensajes privados */}
+          {view === 'messages' && (
+            <Tabs value={messageTab} onValueChange={(v) => setMessageTab(v as 'received' | 'sent')} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="received">Recibidos {messages.filter(m => !m.isRead).length > 0 && `(${messages.filter(m => !m.isRead).length})`}</TabsTrigger>
+                <TabsTrigger value="sent">Enviados</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="received" className="space-y-4">
+                <div className="flex justify-end mb-4">
+                  <Button onClick={handleOpenNewMessage} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                    <Plus className="mr-2 h-4 w-4" /> Nuevo Mensaje
+                  </Button>
+                </div>
+                
+                {messages.map(msg => (
+                  <Card key={msg.id} className={`bg-slate-800/50 border-slate-700 ${!msg.isRead ? 'border-l-4 border-l-yellow-500' : ''}`}>
+                    <Collapsible open={expandedMessages.has(msg.id)} onOpenChange={(open) => {
+                      const newExpanded = new Set(expandedMessages);
+                      if (open) {
+                        newExpanded.add(msg.id);
+                        if (!msg.isRead) markAsRead(msg.id);
+                      } else {
+                        newExpanded.delete(msg.id);
+                      }
+                      setExpandedMessages(newExpanded);
+                    }}>
+                      <CollapsibleTrigger className="w-full">
+                        <CardHeader className="cursor-pointer hover:bg-slate-700/30 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-yellow-500 rounded-full flex items-center justify-center">
+                                <span className="font-bold">{msg.sender.name.charAt(0)}</span>
+                              </div>
+                              <div>
+                                <CardTitle className="text-base">{msg.subject || '(Sin asunto)'}</CardTitle>
+                                <p className="text-sm text-slate-400">De: {msg.sender.name} • {formatDate(msg.createdAt)}</p>
+                              </div>
+                            </div>
+                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedMessages.has(msg.id) ? 'rotate-180' : ''}`} />
+                          </div>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="pt-0 space-y-4">
+                          <ContentWithLinks content={msg.content} />
+                          {msg.attachments?.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {msg.attachments.map(att => renderAttachment(att))}
+                            </div>
+                          )}
+                          <div className="flex justify-end gap-2 pt-2 border-t border-slate-700">
+                            <Button size="sm" variant="outline" onClick={() => {
+                              setNewMessageRecipient(msg.sender.id);
+                              setNewMessageSubject(`Re: ${msg.subject || '(Sin asunto)'}`);
+                              setShowNewMessage(true);
+                            }}>
+                              <Reply className="mr-2 h-4 w-4" /> Responder
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => deleteMessage(msg.id)} className="text-red-400 hover:text-red-300">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </Card>
+                ))}
+                
+                {messages.length === 0 && (
+                  <div className="text-center py-12 text-slate-400">
+                    <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No tienes mensajes</p>
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="sent" className="space-y-4">
+                {sentMessages.map(msg => (
+                  <Card key={msg.id} className="bg-slate-800/50 border-slate-700">
+                    <Collapsible open={expandedMessages.has(msg.id)} onOpenChange={(open) => {
+                      const newExpanded = new Set(expandedMessages);
+                      if (open) newExpanded.add(msg.id);
+                      else newExpanded.delete(msg.id);
+                      setExpandedMessages(newExpanded);
+                    }}>
+                      <CollapsibleTrigger className="w-full">
+                        <CardHeader className="cursor-pointer hover:bg-slate-700/30 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-gradient-to-br from-slate-500 to-slate-600 rounded-full flex items-center justify-center">
+                                <Send className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <CardTitle className="text-base">{msg.subject || '(Sin asunto)'}</CardTitle>
+                                <p className="text-sm text-slate-400">Para: {msg.receiver.name} • {formatDate(msg.createdAt)}</p>
+                              </div>
+                            </div>
+                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedMessages.has(msg.id) ? 'rotate-180' : ''}`} />
+                          </div>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="pt-0 space-y-4">
+                          <ContentWithLinks content={msg.content} />
+                          {msg.attachments?.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {msg.attachments.map(att => renderAttachment(att))}
+                            </div>
+                          )}
+                          <div className="flex justify-end pt-2 border-t border-slate-700">
+                            <Button size="sm" variant="ghost" onClick={() => deleteMessage(msg.id)} className="text-red-400 hover:text-red-300">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </Card>
+                ))}
+                
+                {sentMessages.length === 0 && (
+                  <div className="text-center py-12 text-slate-400">
+                    <Send className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No has enviado mensajes</p>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          )}
+          
+          {/* VISTA: Admin */}
+          {view === 'admin' && user.role === 'admin' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-semibold">Administración de Usuarios</h3>
+                <Button onClick={() => setShowInviteUser(true)} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                  <UserPlus className="mr-2 h-4 w-4" /> Invitar Usuario
+                </Button>
+              </div>
+              
+              <div className="grid gap-4">
+                {members.map(member => (
+                  <Card key={member.id} className="bg-slate-800/50 border-slate-700">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-yellow-500 rounded-full flex items-center justify-center">
+                              <span className="font-bold">{member.name.charAt(0)}</span>
+                            </div>
+                            {isUserOnline(member.lastActiveAt) && (
+                              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-800"></div>
+                            )}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold">{member.name}</span>
+                              {member.role === 'admin' && <Crown className="h-4 w-4 text-yellow-400" />}
+                              {!member.isActive && <Badge variant="destructive" className="text-xs">Inactivo</Badge>}
+                            </div>
+                            <p className="text-sm text-slate-400">{member.email}</p>
+                            <p className="text-xs text-slate-500">
+                              {member.lastActiveAt ? `Último acceso: ${formatDate(member.lastActiveAt)}` : 'Nunca ha accedido'}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          {member.id !== user.id && (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => toggleUserActive(member.id)} title={member.isActive ? 'Desactivar' : 'Activar'}>
+                                {member.isActive ? <UserCheck className="h-4 w-4 text-green-400" /> : <UserX className="h-4 w-4 text-red-400" />}
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => toggleUserRole(member.id)} title="Cambiar rol">
+                                {member.role === 'admin' ? <Crown className="h-4 w-4 text-yellow-400" /> : <User className="h-4 w-4 text-slate-400" />}
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => deleteUser(member.id)} className="text-red-400 hover:text-red-300">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                
+                {members.length === 0 && (
+                  <div className="text-center py-12 text-slate-400">
+                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No hay usuarios registrados</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -2160,94 +1941,345 @@ Entra en: https://lomejordeespana.es
         </main>
       </div>
     </div>
-          {/* Diálogo de Perfil */}
-    <Dialog open={showProfile} onOpenChange={setShowProfile}>
-      <DialogContent className="bg-slate-800 border-slate-700 max-w-md">
-        <DialogHeader>
-          <DialogTitle>Mi Perfil</DialogTitle>
-          <DialogDescription className="text-slate-400">
-            Actualiza tu información personal
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 pt-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Nombre</label>
-            <Input
-              value={profileName}
-              onChange={(e) => setProfileName(e.target.value)}
-              className="bg-slate-700/50 border-slate-600"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium mb-2 block">Email</label>
-            <Input
-              type="email"
-              value={profileEmail}
-              onChange={(e) => setProfileEmail(e.target.value)}
-              className="bg-slate-700/50 border-slate-600"
-            />
-          </div>
-          
-          {newKeyGenerated ? (
-            <div className="p-3 bg-green-900/20 border border-green-700 rounded-lg">
-              <p className="text-sm text-green-300 font-medium">¡Nueva clave generada!</p>
-              <p className="text-xs text-slate-400 mt-1">Guarda esta clave en un lugar seguro:</p>
-              <div className="flex items-center gap-2 mt-2">
-                <code className="text-lg font-mono text-yellow-400">{newKeyGenerated}</code>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => copyToClipboard(newKeyGenerated)}
-                >
-                  {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3"
-                onClick={() => {
-                  setNewKeyGenerated('');
-                  setShowProfile(false);
-                }}
-              >
-                Entendido
+
+      {/* Diálogo: Nuevo Tema */}
+      <Dialog open={showNewTopic} onOpenChange={setShowNewTopic}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle>Crear Nuevo Tema</DialogTitle>
+            <DialogDescription>Los temas agrupan subtemas y tienen un chat general.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Nombre del tema</label>
+              <Input
+                value={newTopicName}
+                onChange={(e) => setNewTopicName(e.target.value)}
+                placeholder="Ej: Gastronomía, Turismo..."
+                className="bg-slate-700/50 border-slate-600"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Descripción (opcional)</label>
+              <Textarea
+                value={newTopicDesc}
+                onChange={(e) => setNewTopicDesc(e.target.value)}
+                placeholder="Breve descripción del tema..."
+                className="bg-slate-700/50 border-slate-600"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowNewTopic(false)}>Cancelar</Button>
+              <Button onClick={createTopic} disabled={loading || !newTopicName.trim()} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Crear
               </Button>
             </div>
-          ) : (
-            <>
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => updateProfile(false)} 
-                  disabled={loading}
-                  className="flex-1 bg-gradient-to-r from-red-600 to-yellow-600"
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                  Guardar Cambios
-                </Button>
-              </div>
-              <Button 
-                variant="outline" 
-                onClick={() => updateProfile(true)} 
-                disabled={loading}
-                className="w-full"
-              >
-                Generar Nueva Clave de Acceso
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo: Editar Tema */}
+      <Dialog open={!!editingTopic} onOpenChange={() => setEditingTopic(null)}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle>Editar Tema</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Nombre del tema</label>
+              <Input
+                value={editTopicName}
+                onChange={(e) => setEditTopicName(e.target.value)}
+                className="bg-slate-700/50 border-slate-600"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Descripción</label>
+              <Textarea
+                value={editTopicDesc}
+                onChange={(e) => setEditTopicDesc(e.target.value)}
+                className="bg-slate-700/50 border-slate-600"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditingTopic(null)}>Cancelar</Button>
+              <Button onClick={editTopic} disabled={loading} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Guardar
               </Button>
-              <div className="pt-4 border-t border-slate-700">
-                <Button 
-                  variant="ghost" 
-                  onClick={deleteAccount}
-                  className="w-full text-red-400 hover:text-red-300 hover:bg-red-900/20"
-                >
-                  Darme de baja
-                </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo: Nuevo Subtema */}
+      <Dialog open={showNewSubtopic} onOpenChange={setShowNewSubtopic}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle>Crear Nuevo Subtema</DialogTitle>
+            <DialogDescription>Los subtemas contienen las publicaciones del foro.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Nombre del subtema</label>
+              <Input
+                value={newSubtopicName}
+                onChange={(e) => setNewSubtopicName(e.target.value)}
+                placeholder="Ej: Recetas, Restaurantes..."
+                className="bg-slate-700/50 border-slate-600"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowNewSubtopic(false)}>Cancelar</Button>
+              <Button onClick={createSubtopic} disabled={loading || !newSubtopicName.trim()} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Crear
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo: Editar Subtema */}
+      <Dialog open={!!editingSubtopic} onOpenChange={() => setEditingSubtopic(null)}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle>Editar Subtema</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Nombre del subtema</label>
+              <Input
+                value={editSubtopicName}
+                onChange={(e) => setEditSubtopicName(e.target.value)}
+                className="bg-slate-700/50 border-slate-600"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditingSubtopic(null)}>Cancelar</Button>
+              <Button onClick={editSubtopic} disabled={loading} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Guardar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+                Guardar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo: Nuevo Mensaje Privado */}
+      <Dialog open={showNewMessage} onOpenChange={setShowNewMessage}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle>Nuevo Mensaje Privado</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Destinatario</label>
+              <Select value={newMessageRecipient} onValueChange={setNewMessageRecipient}>
+                <SelectTrigger className="bg-slate-700/50 border-slate-600">
+                  <SelectValue placeholder="Seleccionar destinatario" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-700 border-slate-600">
+                  {allMembers.filter(m => m.id !== user?.id).map(member => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Asunto</label>
+              <Input
+                value={newMessageSubject}
+                onChange={(e) => setNewMessageSubject(e.target.value)}
+                placeholder="Asunto del mensaje..."
+                className="bg-slate-700/50 border-slate-600"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Mensaje</label>
+              <Textarea
+                value={newMessageContent}
+                onChange={(e) => setNewMessageContent(e.target.value)}
+                placeholder="Escribe tu mensaje..."
+                className="min-h-[120px] bg-slate-700/50 border-slate-600"
+              />
+            </div>
+            <FileUpload
+              onUploadComplete={(files) => setMessageAttachments(prev => [...prev, ...files])}
+              existingFiles={messageAttachments}
+              onRemoveExisting={(index) => setMessageAttachments(prev => prev.filter((_, i) => i !== index))}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => {
+                setShowNewMessage(false);
+                setMessageAttachments([]);
+              }}>Cancelar</Button>
+              <Button onClick={sendMessage} disabled={loading || (!newMessageContent.trim() && messageAttachments.length === 0) || !newMessageRecipient} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Enviar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo: Invitar Usuario */}
+      <Dialog open={showInviteUser} onOpenChange={setShowInviteUser}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle>Invitar Nuevo Usuario</DialogTitle>
+            <DialogDescription>Se generará una clave de acceso única para el nuevo usuario.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Nombre</label>
+              <Input
+                value={newUserName}
+                onChange={(e) => setNewUserName(e.target.value)}
+                placeholder="Nombre del usuario"
+                className="bg-slate-700/50 border-slate-600"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Email</label>
+              <Input
+                type="email"
+                value={newUserEmail}
+                onChange={(e) => setNewUserEmail(e.target.value)}
+                placeholder="email@ejemplo.com"
+                className="bg-slate-700/50 border-slate-600"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowInviteUser(false)}>Cancelar</Button>
+              <Button onClick={inviteUser} disabled={loading || !newUserName.trim() || !newUserEmail.trim()} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Invitar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo: Clave de invitado generada */}
+      <Dialog open={!!invitedUserKey} onOpenChange={() => setInvitedUserKey(null)}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle>¡Usuario Invitado!</DialogTitle>
+            <DialogDescription>
+              Comparte esta información con el nuevo usuario. La clave es única y confidencial.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-4 bg-slate-700/50 rounded-lg space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-400">Nombre:</span>
+                <span className="font-medium">{invitedUserKey?.name}</span>
               </div>
-            </>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-400">Email:</span>
+                <span className="font-medium">{invitedUserKey?.email}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-400">Clave de acceso:</span>
+                <div className="flex items-center gap-2">
+                  <code className="px-2 py-1 bg-slate-600 rounded font-mono text-yellow-400">{invitedUserKey?.accessKey}</code>
+                  <Button size="sm" variant="ghost" onClick={() => copyToClipboard(invitedUserKey?.accessKey || '')}>
+                    {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+              <p className="text-sm text-yellow-200">
+                <strong>Importante:</strong> Guarda esta clave en un lugar seguro. El usuario la necesitará para acceder al foro.
+              </p>
+            </div>
+            
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setInvitedUserKey(null)}>Cerrar</Button>
+              <Button onClick={() => {
+                const message = getInvitationMessage();
+                navigator.clipboard.writeText(message);
+                setCopied(true);
+              }} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                <Copy className="mr-2 h-4 w-4" />
+                Copiar mensaje completo
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo: Perfil */}
+      <Dialog open={showProfile} onOpenChange={setShowProfile}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle>Mi Perfil</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Nombre</label>
+              <Input
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                className="bg-slate-700/50 border-slate-600"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Email</label>
+              <Input
+                type="email"
+                value={profileEmail}
+                onChange={(e) => setProfileEmail(e.target.value)}
+                className="bg-slate-700/50 border-slate-600"
+              />
+            </div>
+            
+            {newKeyGenerated && (
+              <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                <p className="text-sm text-yellow-200 mb-2">
+                  <strong>¡Nueva clave generada!</strong>
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 px-2 py-1 bg-slate-600 rounded font-mono text-yellow-400">{newKeyGenerated}</code>
+                  <Button size="sm" variant="ghost" onClick={() => copyToClipboard(newKeyGenerated)}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => updateProfile(false)} disabled={loading} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Guardar cambios
+              </Button>
+              <Button variant="outline" onClick={() => updateProfile(true)} disabled={loading}>
+                <Key className="mr-2 h-4 w-4" />
+                Generar nueva clave
+              </Button>
+            </div>
+            
+            <div className="pt-4 border-t border-slate-700">
+              <Button variant="ghost" onClick={deleteAccount} className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
+                <UserX className="mr-2 h-4 w-4" />
+                Darse de baja
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
