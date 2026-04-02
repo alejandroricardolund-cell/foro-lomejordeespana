@@ -129,7 +129,14 @@ export function isTwitterLink(url: string): boolean {
 export function isExternalLink(url: string): boolean {
   try {
     const urlObj = new URL(url);
-    const foroDomains = ['lomejordeespana.es', 'foro-lomejordeespana.vercel.app', 'localhost'];
+    // Dominios del foro (con ñ y sin ñ, más versión punycode)
+    const foroDomains = [
+      'lomejordeespaña.es',      // Con ñ
+      'lomejordeespana.es',      // Sin ñ
+      'xn--lomejordeespaa-2nb.es', // Punycode
+      'foro-lomejordeespana.vercel.app',
+      'localhost'
+    ];
     return !foroDomains.some(domain => urlObj.hostname.includes(domain));
   } catch {
     return false;
