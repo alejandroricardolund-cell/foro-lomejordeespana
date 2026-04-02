@@ -788,7 +788,7 @@ export default function ForumPage() {
           accessKey: data.user.accessKey
         });
         setNewUserName('');
-        setUserEmail('');
+        setNewUserEmail('');
         setShowInviteUser(false);
         loadMembers();
       } else {
