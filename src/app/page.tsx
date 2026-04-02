@@ -1662,7 +1662,7 @@ Entra en: https://lomejordeespana.es
           </div>
           <div>
             <label className="text-sm font-medium mb-2 block">Email</label>
-            <Input type="email" value={newUserEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="email@ejemplo.com" className="bg-slate-700/50 border-slate-600" />
+            <Input type="email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} placeholder="email@ejemplo.com" className="bg-slate-700/50 border-slate-600" />
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setShowInviteUser(false)}>Cancelar</Button>
