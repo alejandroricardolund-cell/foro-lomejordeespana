@@ -8,15 +8,16 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   Lock, AlertCircle, Loader2, Home, MessageSquare, Users, Settings, LogOut, 
   Plus, ThumbsUp, ThumbsDown, Trash2, Edit, Send, Mail, ChevronRight, ChevronDown, ChevronUp,
-  Menu, X, Key, User, UserX, UserCheck, UserPlus, Crown, Search, Reply, Circle, CheckCircle, XCircle, Copy, Check, File, Music
+  Menu, X, Key, User, UserX, Crown, Search, Reply, Circle, CheckCircle, XCircle, Copy, Check, File, Music,
+  UserPlus, UserCheck
 } from 'lucide-react';
 import { FileUpload, UploadedFile } from '@/components/file-upload';
 import { ContentWithLinks } from '@/components/external-link';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 // Tipos
 interface User {
@@ -122,6 +123,7 @@ interface SearchResult {
 }
 
 type View = 'login' | 'forum' | 'topic' | 'subtopic' | 'chat' | 'admin' | 'profile' | 'messages';
+
 export default function ForumPage() {
   // Estados de autenticación
   const [user, setUser] = useState<User | null>(null);
@@ -212,7 +214,7 @@ export default function ForumPage() {
   
   const chatRef = useRef<HTMLDivElement>(null);
   
-  // Funciones de datos
+  // Funciones de datos (definidas primero)
   const loadTopics = async () => {
     try {
       const res = await fetch('/api/topics');
@@ -243,7 +245,7 @@ export default function ForumPage() {
     }
   };
 
-  // Funciones de autenticación
+  // Funciones de autenticación (definidas antes de usarlas en useEffect)
   const checkSession = async () => {
     try {
       const res = await fetch('/api/auth/session');
@@ -301,6 +303,7 @@ export default function ForumPage() {
         const newView = event.state.view;
         setView(newView);
         
+        // Actualizar selectedTopic y selectedSubtopic según el estado
         if (newView === 'forum') {
           setSelectedTopic(null);
           setSelectedSubtopic(null);
@@ -309,6 +312,7 @@ export default function ForumPage() {
           if (topic) setSelectedTopic(topic);
           setSelectedSubtopic(null);
         } else if (newView === 'subtopic' && event.state.subtopicId) {
+          // Buscar el subtopic en los topics
           for (const t of topics) {
             const st = t.subtopics.find(s => s.id === event.state.subtopicId);
             if (st) {
@@ -319,17 +323,22 @@ export default function ForumPage() {
           }
         }
       } else {
+        // Si no hay estado, volver al foro
         if (user) {
           setView('forum');
           setSelectedTopic(null);
           setSelectedSubtopic(null);
+          // Asegurar que hay un estado en el historial
           window.history.pushState({ view: 'forum' }, '', window.location.pathname);
         }
       }
     };
     
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, [user, topics]);
 
   const handleInit = async () => {
@@ -399,6 +408,7 @@ export default function ForumPage() {
     setView('forum');
   };
 
+  // Funciones de datos adicionales
   const loadPosts = async (subtopicId: string) => {
     try {
       const res = await fetch(`/api/posts?subtopicId=${subtopicId}`);
@@ -439,7 +449,8 @@ export default function ForumPage() {
       console.error('Error loading sent messages:', e);
     }
   };
-    // Acciones de navegación
+  
+  // Acciones de navegación
   const goToTopic = (topic: Topic) => {
     setSelectedTopic(topic);
     loadChat(topic.id);
@@ -468,7 +479,9 @@ export default function ForumPage() {
     window.history.pushState({ view: 'admin' }, '');
   };
 
-  const goToProfile = () => setShowProfile(true);
+  const goToProfile = () => {
+    setShowProfile(true);
+  };
 
   const goToMessages = () => {
     loadMessages();
@@ -646,8 +659,7 @@ export default function ForumPage() {
     }
     setLoading(false);
   };
-
-  const updatePost = async (id: string) => {
+    const updatePost = async (id: string) => {
     if (!editContent.trim()) return;
     try {
       await fetch('/api/posts', {
@@ -749,7 +761,9 @@ export default function ForumPage() {
   const deleteMessage = async (id: string) => {
     if (!confirm('¿Eliminar este mensaje?')) return;
     try {
-      await fetch(`/api/messages/${id}?userId=${user?.id}`, { method: 'DELETE' });
+      await fetch(`/api/messages/${id}?userId=${user?.id}`, {
+        method: 'DELETE'
+      });
       loadMessages();
       loadSentMessages();
     } catch (e) {
@@ -768,9 +782,13 @@ export default function ForumPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setInvitedUserKey({ name: data.user.name, email: data.user.email, accessKey: data.user.accessKey });
+        setInvitedUserKey({
+          name: data.user.name,
+          email: data.user.email,
+          accessKey: data.user.accessKey
+        });
         setNewUserName('');
-        setNewUserEmail('');
+        setUserEmail('');
         setShowInviteUser(false);
         loadMembers();
       } else {
@@ -839,7 +857,11 @@ export default function ForumPage() {
       const res = await fetch('/api/users/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: profileName, email: profileEmail, newAccessKey: generateNewKey })
+        body: JSON.stringify({ 
+          name: profileName, 
+          email: profileEmail,
+          newAccessKey: generateNewKey
+        })
       });
       const data = await res.json();
       if (data.success) {
@@ -885,11 +907,15 @@ export default function ForumPage() {
   // Formatear fecha
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('es-ES', {
-      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
-
-  // Función para renderizar attachments
+  
+  // Función para renderizar attachments correctamente
   const renderAttachment = (att: { id: string; url: string; name: string; size: number; type: string }, isCompact: boolean = false) => {
     const isImage = att.type.startsWith('image/');
     const isVideo = att.type.startsWith('video/');
@@ -901,13 +927,19 @@ export default function ForumPage() {
       return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     };
 
+    // Función para obtener URL del proxy (para servir con Content-Type correcto)
     const getProxyUrl = (url: string) => `/api/file?url=${encodeURIComponent(url)}`;
 
     if (isImage) {
       return (
         <div key={att.id} className={`${isCompact ? '' : 'my-2'}`}>
           <a href={getProxyUrl(att.url)} target="_blank" rel="noopener noreferrer" className="block">
-            <img src={getProxyUrl(att.url)} alt={att.name} className={`${isCompact ? 'max-w-[150px] max-h-[100px]' : 'max-w-full md:max-w-[400px] max-h-[300px]'} object-cover rounded border border-slate-600 hover:border-yellow-500 transition-colors cursor-pointer`} loading="lazy" />
+            <img 
+              src={getProxyUrl(att.url)} 
+              alt={att.name} 
+              className={`${isCompact ? 'max-w-[150px] max-h-[100px]' : 'max-w-full md:max-w-[400px] max-h-[300px]'} object-cover rounded border border-slate-600 hover:border-yellow-500 transition-colors cursor-pointer`}
+              loading="lazy"
+            />
           </a>
           <p className="text-xs text-slate-400 mt-1 truncate max-w-[200px]">{att.name}</p>
         </div>
@@ -917,7 +949,12 @@ export default function ForumPage() {
     if (isVideo) {
       return (
         <div key={att.id} className={`${isCompact ? '' : 'my-2'}`}>
-          <video src={getProxyUrl(att.url)} controls className={`${isCompact ? 'max-w-[200px] max-h-[150px]' : 'max-w-full md:max-w-[500px] max-h-[300px]'} rounded border border-slate-600`} preload="metadata">
+          <video 
+            src={getProxyUrl(att.url)} 
+            controls 
+            className={`${isCompact ? 'max-w-[200px] max-h-[150px]' : 'max-w-full md:max-w-[500px] max-h-[300px]'} rounded border border-slate-600`}
+            preload="metadata"
+          >
             Tu navegador no soporta video HTML5.
           </video>
           <p className="text-xs text-slate-400 mt-1 truncate max-w-[200px]">{att.name}</p>
@@ -940,8 +977,15 @@ export default function ForumPage() {
       );
     } 
     
+    // Otros archivos (PDF, etc): abrir en nueva pestaña con proxy
     return (
-      <a key={att.id} href={getProxyUrl(att.url)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-2 bg-slate-700/50 hover:bg-slate-600/50 rounded border border-slate-600 hover:border-yellow-500 transition-colors">
+      <a
+        key={att.id}
+        href={getProxyUrl(att.url)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 px-3 py-2 bg-slate-700/50 hover:bg-slate-600/50 rounded border border-slate-600 hover:border-yellow-500 transition-colors"
+      >
         <File className="h-4 w-4 text-slate-400" />
         <div className="flex flex-col">
           <span className="text-sm truncate max-w-[150px]">{att.name}</span>
@@ -970,12 +1014,13 @@ Entra en: https://lomejordeespana.es
 ¡Te esperamos!`;
   };
 
-  // Función para abrir el diálogo de nuevo mensaje
+  // Función para abrir el diálogo de nuevo mensaje y cargar miembros
   const handleOpenNewMessage = () => {
     loadAllMembers();
     setShowNewMessage(true);
   };
-    // RENDER PRINCIPAL
+
+  // RENDER PRINCIPAL
   if (checkingSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -998,20 +1043,30 @@ Entra en: https://lomejordeespana.es
             <CardTitle className="text-3xl font-bold bg-gradient-to-r from-red-500 via-yellow-500 to-red-500 bg-clip-text text-transparent">
               Lo Mejor De España
             </CardTitle>
-            <CardDescription className="text-slate-300 text-lg mt-2">Foro Privado</CardDescription>
+            <CardDescription className="text-slate-300 text-lg mt-2">
+              Foro Privado
+            </CardDescription>
           </CardHeader>
           
           <CardContent>
             {needsInit ? (
               <div className="space-y-4 text-center">
-                <p className="text-slate-300 text-sm">El sistema no ha sido inicializado. Cree la cuenta de administrador para comenzar.</p>
-                <Button onClick={handleInit} disabled={loading} className="w-full bg-gradient-to-r from-red-600 to-yellow-600 hover:from-red-700 hover:to-yellow-700">
+                <p className="text-slate-300 text-sm">
+                  El sistema no ha sido inicializado. Cree la cuenta de administrador para comenzar.
+                </p>
+                <Button 
+                  onClick={handleInit}
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-red-600 to-yellow-600 hover:from-red-700 hover:to-yellow-700"
+                >
                   {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Inicializando...</> : 'Inicializar Sistema'}
                 </Button>
               </div>
             ) : blocked ? (
               <div className="text-center space-y-4">
-                <div className="flex justify-center"><AlertCircle className="w-12 h-12 text-red-500" /></div>
+                <div className="flex justify-center">
+                  <AlertCircle className="w-12 h-12 text-red-500" />
+                </div>
                 <p className="text-red-400 font-medium">Acceso bloqueado por demasiados intentos fallidos.</p>
                 <p className="text-slate-400 text-sm">Intente nuevamente más tarde.</p>
               </div>
@@ -1019,12 +1074,36 @@ Entra en: https://lomejordeespana.es
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input type="text" placeholder="Ingrese su clave de acceso" value={accessKey} onChange={(e) => setAccessKey(e.target.value.toUpperCase())} className="pl-10 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-yellow-500" disabled={loginLoading || waitTime > 0} maxLength={16} />
+                  <Input
+                    type="text"
+                    placeholder="Ingrese su clave de acceso"
+                    value={accessKey}
+                    onChange={(e) => setAccessKey(e.target.value.toUpperCase())}
+                    className="pl-10 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-yellow-500"
+                    disabled={loginLoading || waitTime > 0}
+                    maxLength={16}
+                  />
                 </div>
-                {loginError && <p className="text-red-400 text-sm text-center flex items-center justify-center gap-2"><AlertCircle className="h-4 w-4" />{loginError}</p>}
-                {waitTime > 0 && <p className="text-yellow-400 text-sm text-center">Espere {waitTime} segundos...</p>}
-                {attemptsLeft < 3 && !blocked && <p className="text-yellow-400 text-sm text-center">Intentos restantes: {attemptsLeft}</p>}
-                <Button type="submit" disabled={loginLoading || waitTime > 0 || !accessKey.trim()} className="w-full bg-gradient-to-r from-red-600 to-yellow-600 hover:from-red-700 hover:to-yellow-700 text-white font-medium py-2">
+                
+                {loginError && (
+                  <p className="text-red-400 text-sm text-center flex items-center justify-center gap-2">
+                    <AlertCircle className="h-4 w-4" />{loginError}
+                  </p>
+                )}
+                
+                {waitTime > 0 && (
+                  <p className="text-yellow-400 text-sm text-center">Espere {waitTime} segundos...</p>
+                )}
+                
+                {attemptsLeft < 3 && !blocked && (
+                  <p className="text-yellow-400 text-sm text-center">Intentos restantes: {attemptsLeft}</p>
+                )}
+                
+                <Button 
+                  type="submit" 
+                  disabled={loginLoading || waitTime > 0 || !accessKey.trim()}
+                  className="w-full bg-gradient-to-r from-red-600 to-yellow-600 hover:from-red-700 hover:to-yellow-700 text-white font-medium py-2"
+                >
                   {loginLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Verificando...</> : 'Entrar'}
                 </Button>
               </form>
@@ -1034,7 +1113,7 @@ Entra en: https://lomejordeespana.es
       </div>
     );
   }
-
+  
   // Vista del Foro (logueado)
   return (
     <>
@@ -1042,24 +1121,46 @@ Entra en: https://lomejordeespana.es
       {/* Sidebar */}
       <div className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-slate-800 border-r border-slate-700 flex flex-col transition-all duration-300`}>
         <div className="p-4 border-b border-slate-700 flex items-center justify-between">
-          {sidebarOpen && <h1 className="font-bold text-lg bg-gradient-to-r from-red-500 to-yellow-500 bg-clip-text text-transparent">Lo Mejor De España</h1>}
+          {sidebarOpen && (
+            <h1 className="font-bold text-lg bg-gradient-to-r from-red-500 to-yellow-500 bg-clip-text text-transparent">
+              Lo Mejor De España
+            </h1>
+          )}
           <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)}>
             {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </Button>
         </div>
         
         <nav className="flex-1 p-2 space-y-1">
-          <Button variant={view === 'forum' ? 'secondary' : 'ghost'} className="w-full justify-start gap-2" onClick={() => setView('forum')}>
+          <Button 
+            variant={view === 'forum' ? 'secondary' : 'ghost'} 
+            className="w-full justify-start gap-2"
+            onClick={() => setView('forum')}
+          >
             <Home className="h-4 w-4" />
             {sidebarOpen && 'Inicio'}
           </Button>
-          <Button variant={view === 'messages' ? 'secondary' : 'ghost'} className="w-full justify-start gap-2 relative" onClick={goToMessages}>
+          
+          <Button 
+            variant={view === 'messages' ? 'secondary' : 'ghost'} 
+            className="w-full justify-start gap-2 relative"
+            onClick={goToMessages}
+          >
             <Mail className="h-4 w-4" />
             {sidebarOpen && 'Mensajes'}
-            {unreadCount > 0 && <Badge className="absolute right-2 h-5 w-5 p-0 flex items-center justify-center bg-red-500">{unreadCount}</Badge>}
+            {unreadCount > 0 && (
+              <Badge className="absolute right-2 h-5 w-5 p-0 flex items-center justify-center bg-red-500">
+                {unreadCount}
+              </Badge>
+            )}
           </Button>
+          
           {user.role === 'admin' && (
-            <Button variant={view === 'admin' ? 'secondary' : 'ghost'} className="w-full justify-start gap-2" onClick={goToAdmin}>
+            <Button 
+              variant={view === 'admin' ? 'secondary' : 'ghost'} 
+              className="w-full justify-start gap-2"
+              onClick={goToAdmin}
+            >
               <Users className="h-4 w-4" />
               {sidebarOpen && 'Administrar'}
             </Button>
@@ -1067,11 +1168,20 @@ Entra en: https://lomejordeespana.es
         </nav>
         
         <div className="p-2 border-t border-slate-700 space-y-1">
-          <Button variant="ghost" className="w-full justify-start gap-2" onClick={goToProfile}>
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start gap-2"
+            onClick={goToProfile}
+          >
             <Settings className="h-4 w-4" />
             {sidebarOpen && 'Mi Perfil'}
           </Button>
-          <Button variant="ghost" className="w-full justify-start gap-2 text-red-400 hover:text-red-300" onClick={handleLogout}>
+          
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start gap-2 text-red-400 hover:text-red-300"
+            onClick={handleLogout}
+          >
             <LogOut className="h-4 w-4" />
             {sidebarOpen && 'Salir'}
           </Button>
@@ -1089,267 +1199,351 @@ Entra en: https://lomejordeespana.es
                   <ChevronRight className="h-4 w-4 rotate-180" />
                 </Button>
               )}
-              <h2 className="text-xl font-semibold">
-                {view === 'forum' && 'Foro'}
-                {view === 'topic' && selectedTopic?.name}
-                {view === 'subtopic' && selectedSubtopic?.name}
-                {view === 'chat' && `Chat: ${selectedTopic?.name}`}
-                {view === 'admin' && 'Administración'}
-                {view === 'messages' && 'Mensajes'}
-              </h2>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <Input type="text" placeholder="Buscar..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); handleSearch(); }} className="w-48 bg-slate-700/50 border-slate-600" />
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <div>
+                <h2 className="font-semibold">
+                  {view === 'forum' && 'Foro'}
+                  {view === 'topic' && selectedTopic?.name}
+                  {view === 'subtopic' && selectedSubtopic?.name}
+                  {view === 'chat' && `Chat: ${selectedTopic?.name}`}
+                  {view === 'admin' && 'Administración'}
+                  {view === 'messages' && 'Mensajes Privados'}
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Bienvenido, {user.name}
+                </p>
               </div>
-              {showSearch && searchResults && (
-                <div className="absolute top-16 right-4 w-80 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
-                  <div className="p-2 border-b border-slate-700 flex justify-between items-center">
-                    <span className="text-sm font-medium">Resultados</span>
-                    <Button variant="ghost" size="sm" onClick={() => { setShowSearch(false); setSearchResults(null); setSearchQuery(''); }}><X className="h-4 w-4" /></Button>
-                  </div>
-                  {searchResults.topics.length === 0 && searchResults.subtopics.length === 0 && searchResults.posts.length === 0 ? (
-                    <p className="p-4 text-slate-400 text-sm text-center">No se encontraron resultados</p>
-                  ) : (
-                    <div className="p-2 space-y-2">
-                      {searchResults.topics.map(t => (
-                        <button key={t.id} onClick={() => { const topic = topics.find(tp => tp.id === t.id); if (topic) goToTopic(topic); setShowSearch(false); }} className="w-full text-left p-2 hover:bg-slate-700 rounded">
-                          <p className="text-sm font-medium">{t.title}</p>
-                          <p className="text-xs text-slate-400">Tema</p>
-                        </button>
-                      ))}
-                      {searchResults.subtopics.map(s => (
-                        <button key={s.id} onClick={() => { for (const t of topics) { const st = t.subtopics.find(sb => sb.id === s.id); if (st) { setSelectedTopic(t); goToSubtopic(st); break; } } setShowSearch(false); }} className="w-full text-left p-2 hover:bg-slate-700 rounded">
-                          <p className="text-sm font-medium">{s.title}</p>
-                          <p className="text-xs text-slate-400">Subtema</p>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              <span className="text-sm text-slate-400">{user.name}</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {/* Búsqueda */}
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder="Buscar..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (e.target.value.length >= 2) {
+                      handleSearch();
+                    } else {
+                      setShowSearch(false);
+                      setSearchResults(null);
+                    }
+                  }}
+                  className="w-48 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400"
+                />
+                {showSearch && searchResults && (
+                  <Card className="absolute top-full mt-2 w-80 max-h-96 overflow-y-auto z-50 bg-slate-800 border-slate-700">
+                    <CardContent className="p-2">
+                      {searchResults.topics.length === 0 && searchResults.subtopics.length === 0 && searchResults.posts.length === 0 ? (
+                        <p className="text-sm text-slate-400 text-center py-4">Sin resultados</p>
+                      ) : (
+                        <>
+                          {searchResults.topics.length > 0 && (
+                            <div className="mb-2">
+                              <p className="text-xs text-slate-400 mb-1">Temas:</p>
+                              {searchResults.topics.map(t => (
+                                <Button key={t.id} variant="ghost" size="sm" className="w-full justify-start" onClick={() => {
+                                  const topic = topics.find(top => top.id === t.id);
+                                  if (topic) goToTopic(topic);
+                                  setShowSearch(false);
+                                  setSearchQuery('');
+                                }}>
+                                  {t.title}
+                                </Button>
+                              ))}
+                            </div>
+                          )}
+                          {searchResults.subtopics.length > 0 && (
+                            <div className="mb-2">
+                              <p className="text-xs text-slate-400 mb-1">Subtemas:</p>
+                              {searchResults.subtopics.map(s => (
+                                <Button key={s.id} variant="ghost" size="sm" className="w-full justify-start" onClick={() => {
+                                  const topic = topics.find(t => t.subtopics.some(st => st.id === s.id));
+                                  if (topic) {
+                                    setSelectedTopic(topic);
+                                    const subtopic = topic.subtopics.find(st => st.id === s.id);
+                                    if (subtopic) goToSubtopic(subtopic);
+                                  }
+                                  setShowSearch(false);
+                                  setSearchQuery('');
+                                }}>
+                                  {t.title}
+                                </Button>
+                              ))}
+                            </div>
+                          )}
+                          {searchResults.posts.length > 0 && (
+                            <div>
+                              <p className="text-xs text-slate-400 mb-1">Publicaciones:</p>
+                              {searchResults.posts.map(p => (
+                                <Button key={p.id} variant="ghost" size="sm" className="w-full justify-start text-left" onClick={() => {
+                                  if (p.topicId && p.subtopicId) {
+                                    const topic = topics.find(t => t.id === p.topicId);
+                                    if (topic) {
+                                      setSelectedTopic(topic);
+                                      const subtopic = topic.subtopics.find(st => st.id === p.subtopicId);
+                                      if (subtopic) goToSubtopic(subtopic);
+                                    }
+                                  }
+                                  setShowSearch(false);
+                                  setSearchQuery('');
+                                }}>
+                                  <span className="truncate">{p.title}</span>
+                                </Button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             </div>
           </div>
         </header>
-
-        {/* Contenido */}
+                {/* Contenido */}
         <main className="flex-1 overflow-y-auto p-4">
-          {/* Vista: Foro principal */}
+          {/* VISTA: Foro principal */}
           {view === 'forum' && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium">Temas</h3>
+                <h3 className="text-lg font-semibold">Temas del Foro</h3>
                 {user.role === 'admin' && (
-                  <Button onClick={() => setShowNewTopic(true)} className="bg-gradient-to-r from-red-600 to-yellow-600">
-                    <Plus className="mr-2 h-4 w-4" />Nuevo Tema
+                  <Button onClick={() => setShowNewTopic(true)} size="sm" className="bg-gradient-to-r from-red-600 to-yellow-600">
+                    <Plus className="h-4 w-4 mr-1" /> Nuevo Tema
                   </Button>
                 )}
               </div>
-              {topics.length === 0 ? (
+              
+              {/* Formulario nuevo tema */}
+              {showNewTopic && (
                 <Card className="bg-slate-800/50 border-slate-700">
-                  <CardContent className="p-8 text-center">
-                    <MessageSquare className="h-12 w-12 mx-auto text-slate-400 mb-4" />
-                    <p className="text-slate-400">No hay temas aún.</p>
-                    {user.role === 'admin' && <p className="text-sm text-slate-500 mt-2">Crea el primer tema para comenzar.</p>}
+                  <CardContent className="p-4 space-y-3">
+                    <Input
+                      placeholder="Nombre del tema"
+                      value={newTopicName}
+                      onChange={(e) => setNewTopicName(e.target.value)}
+                      className="bg-slate-700/50 border-slate-600"
+                    />
+                    <Textarea
+                      placeholder="Descripción (opcional)"
+                      value={newTopicDesc}
+                      onChange={(e) => setNewTopicDesc(e.target.value)}
+                      className="bg-slate-700/50 border-slate-600"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => {
+                        setShowNewTopic(false);
+                        setNewTopicName('');
+                        setNewTopicDesc('');
+                      }}>Cancelar</Button>
+                      <Button onClick={createTopic} disabled={loading || !newTopicName.trim()} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                        Crear
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
-              ) : (
-                <div className="grid gap-4">
-                  {topics.map(topic => (
+              )}
+              
+              {/* Lista de temas */}
+              <div className="space-y-3">
+                {topics.length === 0 ? (
+                  <Card className="bg-slate-800/50 border-slate-700">
+                    <CardContent className="p-8 text-center">
+                      <p className="text-slate-400">No hay temas todavía.</p>
+                      {user.role === 'admin' && (
+                        <p className="text-sm text-slate-500 mt-2">Crea el primer tema usando el botón de arriba.</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  topics.map(topic => (
                     <Card key={topic.id} className="bg-slate-800/50 border-slate-700 hover:border-yellow-500/50 transition-colors">
                       <CardContent className="p-4">
-                        <div className="flex justify-between items-start">
-                          <button onClick={() => goToTopic(topic)} className="text-left flex-1">
-                            <h4 className="font-semibold text-lg">{topic.name}</h4>
-                            {topic.description && <p className="text-sm text-slate-400 mt-1">{topic.description}</p>}
-                            <div className="flex gap-4 mt-2 text-xs text-slate-500">
-                              <span>{topic._count.subtopics} subtemas</span>
-                              <span>{topic._count.chatMessages} mensajes en chat</span>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 cursor-pointer" onClick={() => goToTopic(topic)}>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-lg">{topic.name}</h4>
+                              <Badge variant="secondary" className="text-xs">
+                                {topic._count.subtopics} subtemas
+                              </Badge>
                             </div>
-                          </button>
+                            {topic.description && (
+                              <p className="text-sm text-slate-400 mt-1">{topic.description}</p>
+                            )}
+                            <p className="text-xs text-slate-500 mt-2">
+                              Creado por {topic.creator.name}
+                            </p>
+                          </div>
                           {user.role === 'admin' && (
-                            <div className="flex gap-2">
-                              <Button variant="ghost" size="sm" onClick={() => { setEditingTopic(topic); setEditTopicName(topic.name); setEditTopicDesc(topic.description || ''); }}><Edit className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="sm" onClick={() => deleteTopic(topic.id)} className="text-red-400 hover:text-red-300"><Trash2 className="h-4 w-4" /></Button>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="sm" onClick={() => {
+                                setEditingTopic(topic);
+                                setEditTopicName(topic.name);
+                                setEditTopicDesc(topic.description || '');
+                              }}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => deleteTopic(topic.id)} className="text-red-400 hover:text-red-300">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           )}
                         </div>
-                        {topic.subtopics.length > 0 && (
-                          <div className="mt-4 pl-4 border-l-2 border-slate-700 space-y-2">
-                            {topic.subtopics.map(st => (
-                              <button key={st.id} onClick={() => { setSelectedTopic(topic); goToSubtopic(st); }} className="w-full text-left p-2 hover:bg-slate-700/50 rounded flex justify-between items-center">
-                                <span>{st.name}</span>
-                                <span className="text-xs text-slate-400">{st._count.posts} posts</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Vista: Tema */}
-          {view === 'topic' && selectedTopic && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  <h3 className="text-lg font-medium">{selectedTopic.name}</h3>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setShowNewSubtopic(true)}>
-                    <Plus className="mr-2 h-4 w-4" />Nuevo Subtema
-                  </Button>
-                  <Button variant="outline" onClick={goToChat}>
-                    <MessageSquare className="mr-2 h-4 w-4" />Chat
-                  </Button>
-                </div>
-              </div>
-              {selectedTopic.subtopics.length === 0 ? (
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardContent className="p-8 text-center">
-                    <p className="text-slate-400">No hay subtemas. Crea uno para empezar a discutir.</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid gap-4">
-                  {selectedTopic.subtopics.map(st => (
-                    <Card key={st.id} className="bg-slate-800/50 border-slate-700 hover:border-yellow-500/50 transition-colors cursor-pointer" onClick={() => goToSubtopic(st)}>
-                      <CardContent className="p-4 flex justify-between items-center">
-                        <div>
-                          <h4 className="font-semibold">{st.name}</h4>
-                          <p className="text-xs text-slate-400">Creado por {st.creator.name}</p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm text-slate-400">{st._count.posts} publicaciones</span>
-                          <ChevronRight className="h-4 w-4 text-slate-400" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Vista: Subtema */}
-          {view === 'subtopic' && selectedSubtopic && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium">{selectedSubtopic.name}</h3>
-                <Button onClick={() => setShowNewPostForm(true)} className="bg-gradient-to-r from-red-600 to-yellow-600">
-                  <Plus className="mr-2 h-4 w-4" />Nueva Publicación
-                </Button>
-              </div>
-              {posts.length === 0 ? (
-                <Card className="bg-slate-800/50 border-slate-700">
-                  <CardContent className="p-8 text-center">
-                    <p className="text-slate-400">No hay publicaciones aún.</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="space-y-4">
-                  {posts.filter(p => !p.parentId).map(post => (
-                    <Card key={post.id} className="bg-slate-800/50 border-slate-700">
-                      <CardContent className="p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <span className="font-semibold">{post.author.name}</span>
-                            <span className="text-xs text-slate-400 ml-2">{formatDate(post.createdAt)}</span>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button variant="ghost" size="sm" onClick={() => handleLike(post.id, 'like')} className={post.userLike === 'like' ? 'text-green-400' : ''}>
-                              <ThumbsUp className="h-4 w-4" />
-                              <span className="ml-1 text-xs">{post.likesCount}</span>
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleLike(post.id, 'dislike')} className={post.userLike === 'dislike' ? 'text-red-400' : ''}>
-                              <ThumbsDown className="h-4 w-4" />
-                              <span className="ml-1 text-xs">{post.dislikesCount}</span>
-                            </Button>
-                            {post.author.id === user.id && (
-                              <>
-                                <Button variant="ghost" size="sm" onClick={() => { setEditingPost(post.id); setEditContent(post.content); }}><Edit className="h-4 w-4" /></Button>
-                                <Button variant="ghost" size="sm" onClick={() => deletePost(post.id)} className="text-red-400"><Trash2 className="h-4 w-4" /></Button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        {editingPost === post.id ? (
-                          <div className="space-y-2">
-                            <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="bg-slate-700 border-slate-600" />
-                            <div className="flex gap-2">
-                              <Button size="sm" onClick={() => updatePost(post.id)}>Guardar</Button>
-                              <Button size="sm" variant="outline" onClick={() => setEditingPost(null)}>Cancelar</Button>
+                        
+                        {/* Formulario editar tema */}
+                        {editingTopic?.id === topic.id && (
+                          <div className="mt-3 pt-3 border-t border-slate-700 space-y-2">
+                            <Input
+                              value={editTopicName}
+                              onChange={(e) => setEditTopicName(e.target.value)}
+                              className="bg-slate-700/50 border-slate-600"
+                            />
+                            <Textarea
+                              value={editTopicDesc}
+                              onChange={(e) => setEditTopicDesc(e.target.value)}
+                              className="bg-slate-700/50 border-slate-600"
+                            />
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" size="sm" onClick={() => setEditingTopic(null)}>Cancelar</Button>
+                              <Button size="sm" onClick={editTopic} disabled={loading} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                                Guardar
+                              </Button>
                             </div>
                           </div>
-                        ) : (
-                          <>
-                            <ContentWithLinks content={post.content} />
-                            {post.attachments?.length > 0 && (
-                              <div className="flex flex-wrap gap-2 mt-2">
-                                {post.attachments.map(att => renderAttachment(att))}
-                              </div>
-                            )}
-                          </>
-                        )}
-                        <Button variant="ghost" size="sm" onClick={() => setReplyingTo(post)} className="mt-2">
-                          <Reply className="h-4 w-4 mr-1" /> Responder
-                        </Button>
-                        {post.repliesCount > 0 && (
-                          <Collapsible open={expandedPosts.has(post.id)} onOpenChange={(open) => { const newSet = new Set(expandedPosts); if (open) newSet.add(post.id); else newSet.delete(post.id); setExpandedPosts(newSet); }}>
-                            <CollapsibleTrigger asChild>
-                              <Button variant="ghost" size="sm" className="ml-2">
-                                {post.repliesCount} respuesta(s) <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${expandedPosts.has(post.id) ? 'rotate-180' : ''}`} />
-                              </Button>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent>
-                              <div className="mt-3 pl-4 border-l-2 border-slate-700 space-y-3">
-                                {posts.filter(r => r.parentId === post.id).map(reply => (
-                                  <div key={reply.id} className="p-3 bg-slate-700/30 rounded">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <span className="font-semibold text-sm">{reply.author.name}</span>
-                                      <span className="text-xs text-slate-400">{formatDate(reply.createdAt)}</span>
-                                    </div>
-                                    <ContentWithLinks content={reply.content} />
-                                    {reply.attachments?.length > 0 && (
-                                      <div className="flex flex-wrap gap-2 mt-2">
-                                        {reply.attachments.map(att => renderAttachment(att, true))}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </CollapsibleContent>
-                          </Collapsible>
                         )}
                       </CardContent>
                     </Card>
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
             </div>
           )}
-                    {/* Vista: Chat */}
+
+          {/* VISTA: Tema (subtemas y chat) */}
+          {view === 'topic' && selectedTopic && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Subtemas</h3>
+                <div className="flex gap-2">
+                  <Button onClick={goToChat} variant="outline" size="sm">
+                    <MessageSquare className="h-4 w-4 mr-1" /> Chat del tema
+                  </Button>
+                  <Button onClick={() => setShowNewSubtopic(true)} size="sm" className="bg-gradient-to-r from-red-600 to-yellow-600">
+                    <Plus className="h-4 w-4 mr-1" /> Nuevo Subtema
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Formulario nuevo subtema */}
+              {showNewSubtopic && (
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardContent className="p-4 space-y-3">
+                    <Input
+                      placeholder="Nombre del subtema"
+                      value={newSubtopicName}
+                      onChange={(e) => setNewSubtopicName(e.target.value)}
+                      className="bg-slate-700/50 border-slate-600"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => {
+                        setShowNewSubtopic(false);
+                        setNewSubtopicName('');
+                      }}>Cancelar</Button>
+                      <Button onClick={createSubtopic} disabled={loading || !newSubtopicName.trim()} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                        Crear
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Lista de subtemas */}
+              <div className="space-y-2">
+                {selectedTopic.subtopics.length === 0 ? (
+                  <Card className="bg-slate-800/50 border-slate-700">
+                    <CardContent className="p-6 text-center">
+                      <p className="text-slate-400">No hay subtemas en este tema.</p>
+                      <p className="text-sm text-slate-500 mt-2">Crea el primer subtema para empezar a discutir.</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  selectedTopic.subtopics.map(subtopic => (
+                    <Card key={subtopic.id} className="bg-slate-800/50 border-slate-700 hover:border-yellow-500/50 transition-colors cursor-pointer" onClick={() => goToSubtopic(subtopic)}>
+                      <CardContent className="p-3 flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium">{subtopic.name}</h4>
+                          <p className="text-xs text-slate-400">
+                            {subtopic._count.posts} publicaciones • Creado por {subtopic.creator.name}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <ChevronRight className="h-4 w-4 text-slate-400" />
+                          {user.role === 'admin' && (
+                            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                              <Button variant="ghost" size="sm" onClick={() => {
+                                setEditingSubtopic(subtopic);
+                                setEditSubtopicName(subtopic.name);
+                              }}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => deleteSubtopic(subtopic.id)} className="text-red-400 hover:text-red-300">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                      
+                      {/* Formulario editar subtema */}
+                      {editingSubtopic?.id === subtopic.id && (
+                        <div className="px-3 pb-3 space-y-2">
+                          <Input
+                            value={editSubtopicName}
+                            onChange={(e) => setEditSubtopicName(e.target.value)}
+                            className="bg-slate-700/50 border-slate-600"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setEditingSubtopic(null)}>Cancelar</Button>
+                            <Button size="sm" onClick={editSubtopic} disabled={loading} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                              Guardar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* VISTA: Chat del tema */}
           {view === 'chat' && selectedTopic && (
             <div className="flex flex-col h-[calc(100vh-180px)]">
-              <div ref={chatRef} className="flex-1 overflow-y-auto space-y-4 p-4 bg-slate-800/30 rounded-lg">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Chat: {selectedTopic.name}</h3>
+                <Button variant="outline" size="sm" onClick={() => setView('topic')}>
+                  Volver a subtemas
+                </Button>
+              </div>
+              
+              <div ref={chatRef} className="flex-1 overflow-y-auto space-y-3 mb-4 p-2 bg-slate-800/30 rounded-lg">
                 {chatMessages.length === 0 ? (
-                  <p className="text-slate-400 text-center">No hay mensajes. ¡Sé el primero!</p>
+                  <p className="text-slate-400 text-center py-8">No hay mensajes todavía. ¡Sé el primero en escribir!</p>
                 ) : (
                   chatMessages.map(msg => (
-                    <div key={msg.id} className="flex flex-col">
+                    <div key={msg.id} className={`p-3 rounded-lg ${msg.user.id === user.id ? 'bg-yellow-900/20 border border-yellow-700/30 ml-8' : 'bg-slate-700/50 mr-8'}`}>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-sm">{msg.user.name}</span>
+                        <span className="font-medium text-sm">{msg.user.name}</span>
                         <span className="text-xs text-slate-400">{formatDate(msg.createdAt)}</span>
                       </div>
                       <ContentWithLinks content={msg.message} />
-                      {msg.attachments?.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
+                      {msg.attachments.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
                           {msg.attachments.map(att => renderAttachment(att, true))}
                         </div>
                       )}
@@ -1357,418 +1551,700 @@ Entra en: https://lomejordeespana.es
                   ))
                 )}
               </div>
-              <div className="mt-4 flex gap-2">
-                <Textarea value={newChatMessage} onChange={(e) => setNewChatMessage(e.target.value)} placeholder="Escribe un mensaje..." className="bg-slate-700 border-slate-600" rows={2} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }} />
-                <div className="flex flex-col gap-2">
-                  <FileUpload onUploadComplete={(files) => setChatAttachments(prev => [...prev, ...files])} allowedTypes="all" maxFiles={3} />
-                  <Button onClick={sendChatMessage} disabled={!newChatMessage.trim() && chatAttachments.length === 0} className="bg-gradient-to-r from-red-600 to-yellow-600">
+              
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <Textarea
+                    placeholder="Escribe un mensaje..."
+                    value={newChatMessage}
+                    onChange={(e) => setNewChatMessage(e.target.value)}
+                    className="flex-1 bg-slate-700/50 border-slate-600 min-h-[60px]"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendChatMessage();
+                      }
+                    }}
+                  />
+                  <Button onClick={sendChatMessage} disabled={(!newChatMessage.trim() && chatAttachments.length === 0)} className="bg-gradient-to-r from-red-600 to-yellow-600 self-end">
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
+                <FileUpload
+                  onUploadComplete={(files) => setChatAttachments(prev => [...prev, ...files])}
+                  existingFiles={chatAttachments}
+                  onRemoveExisting={(index) => setChatAttachments(prev => prev.filter((_, i) => i !== index))}
+                />
               </div>
             </div>
           )}
 
-          {/* Vista: Mensajes */}
-          {view === 'messages' && (
+          {/* VISTA: Subtema (publicaciones) */}
+          {view === 'subtopic' && selectedSubtopic && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <Tabs value={messageTab} onValueChange={(v) => setMessageTab(v as 'received' | 'sent')}>
-                  <TabsList>
-                    <TabsTrigger value="received">Recibidos {messages.filter(m => !m.isRead).length > 0 && `(${messages.filter(m => !m.isRead).length})`}</TabsTrigger>
-                    <TabsTrigger value="sent">Enviados</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-                <Button onClick={handleOpenNewMessage} className="bg-gradient-to-r from-red-600 to-yellow-600">
-                  <Plus className="mr-2 h-4 w-4" />Nuevo Mensaje
+                <h3 className="text-lg font-semibold">{selectedSubtopic.name}</h3>
+                <Button onClick={() => setShowNewPostForm(!showNewPostForm)} size="sm" className="bg-gradient-to-r from-red-600 to-yellow-600">
+                  <Plus className="h-4 w-4 mr-1" /> Nueva Publicación
                 </Button>
               </div>
-              <TabsContent value="received">
-                {messages.length === 0 ? (
-                  <Card className="bg-slate-800/50 border-slate-700"><CardContent className="p-8 text-center"><p className="text-slate-400">No tienes mensajes.</p></CardContent></Card>
+              
+              {/* Formulario nueva publicación */}
+              {showNewPostForm && (
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardContent className="p-4 space-y-3">
+                    <Textarea
+                      placeholder="Escribe tu publicación..."
+                      value={newPostContent}
+                      onChange={(e) => setNewPostContent(e.target.value)}
+                      className="min-h-[100px] bg-slate-700/50 border-slate-600"
+                    />
+                    <FileUpload
+                      onUploadComplete={(files) => setPostAttachments(prev => [...prev, ...files])}
+                      existingFiles={postAttachments}
+                      onRemoveExisting={(index) => setPostAttachments(prev => prev.filter((_, i) => i !== index))}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => {
+                        setShowNewPostForm(false);
+                        setNewPostContent('');
+                        setPostAttachments([]);
+                      }}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={createPost} disabled={loading || (!newPostContent.trim() && postAttachments.length === 0)} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                        {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Publicar
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Lista de publicaciones */}
+              <div className="space-y-4">
+                {posts.filter(p => !p.parentId).length === 0 ? (
+                  <Card className="bg-slate-800/50 border-slate-700">
+                    <CardContent className="p-8 text-center">
+                      <p className="text-slate-400">No hay publicaciones todavía.</p>
+                      <p className="text-sm text-slate-500 mt-2">Crea la primera publicación para empezar la discusión.</p>
+                    </CardContent>
+                  </Card>
                 ) : (
-                  <div className="space-y-2">
-                    {messages.map(msg => (
-                      <Collapsible key={msg.id} open={expandedMessages.has(msg.id)} onOpenChange={(open) => { const newSet = new Set(expandedMessages); if (open) { newSet.add(msg.id); if (!msg.isRead) markAsRead(msg.id); } else newSet.delete(msg.id); setExpandedMessages(newSet); }}>
-                        <Card className={`bg-slate-800/50 border-slate-700 ${!msg.isRead ? 'border-l-4 border-l-yellow-500' : ''}`}>
-                          <CardHeader className="p-3">
-                            <CollapsibleTrigger className="w-full">
-                              <div className="flex justify-between items-center">
-                                <div className="flex items-center gap-2">
-                                  {!msg.isRead && <Circle className="h-2 w-2 text-yellow-500" />}
-                                  <span className="font-semibold">{msg.subject}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-slate-400">
-                                  <span>De: {msg.sender.name}</span>
-                                  <span>{formatDate(msg.createdAt)}</span>
-                                  <ChevronDown className={`h-4 w-4 transition-transform ${expandedMessages.has(msg.id) ? 'rotate-180' : ''}`} />
-                                </div>
+                  posts.filter(p => !p.parentId).map(post => (
+                    <Card key={post.id} className="bg-slate-800/50 border-slate-700">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-gradient-to-br from-red-600 to-yellow-600 rounded-full flex items-center justify-center text-sm font-bold">
+                              {post.author.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-medium">{post.author.name}</p>
+                              <p className="text-xs text-slate-400">{formatDate(post.createdAt)}</p>
+                            </div>
+                          </div>
+                          {post.author.id === user.id && (
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="sm" onClick={() => {
+                                setEditingPost(post.id);
+                                setEditContent(post.content);
+                              }}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => deletePost(post.id)} className="text-red-400 hover:text-red-300">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {editingPost === post.id ? (
+                          <div className="space-y-2">
+                            <Textarea
+                              value={editContent}
+                              onChange={(e) => setEditContent(e.target.value)}
+                              className="bg-slate-700/50 border-slate-600"
+                            />
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" size="sm" onClick={() => setEditingPost(null)}>Cancelar</Button>
+                              <Button size="sm" onClick={() => updatePost(post.id)} className="bg-gradient-to-r from-red-600 to-yellow-600">Guardar</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <ContentWithLinks content={post.content} />
+                            {post.attachments.length > 0 && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {post.attachments.map(att => renderAttachment(att))}
                               </div>
-                            </CollapsibleTrigger>
-                          </CardHeader>
-                          <CollapsibleContent>
-                            <CardContent className="pt-0 space-y-4">
-                              <ContentWithLinks content={msg.content} />
-                              {msg.attachments?.length > 0 && (
-                                <div className="flex flex-wrap gap-2">
-                                  {msg.attachments.map(att => renderAttachment(att))}
+                            )}
+                          </>
+                        )}
+                        
+                        {/* Likes */}
+                        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-700">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleLike(post.id, 'like')}
+                            className={post.userLike === 'like' ? 'text-green-400' : ''}
+                          >
+                            <ThumbsUp className="h-4 w-4 mr-1" />
+                            {post.likesCount}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleLike(post.id, 'dislike')}
+                            className={post.userLike === 'dislike' ? 'text-red-400' : ''}
+                          >
+                            <ThumbsDown className="h-4 w-4 mr-1" />
+                            {post.dislikesCount}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setReplyingTo(post);
+                              setReplyContent('');
+                            }}
+                          >
+                            <Reply className="h-4 w-4 mr-1" />
+                            Responder ({post.repliesCount})
+                          </Button>
+                        </div>
+                        
+                        {/* Formulario de respuesta */}
+                        {replyingTo?.id === post.id && (
+                          <div className="mt-3 pt-3 border-t border-slate-700 space-y-2">
+                            <Textarea
+                              placeholder="Escribe tu respuesta..."
+                              value={replyContent}
+                              onChange={(e) => setReplyContent(e.target.value)}
+                              className="min-h-[80px] bg-slate-700/50 border-slate-600"
+                            />
+                            <FileUpload
+                              onUploadComplete={(files) => setPostAttachments(prev => [...prev, ...files])}
+                              existingFiles={postAttachments}
+                              onRemoveExisting={(index) => setPostAttachments(prev => prev.filter((_, i) => i !== index))}
+                            />
+                            <div className="flex justify-end gap-2 mt-2">
+                              <Button size="sm" variant="outline" onClick={() => {
+                                setReplyingTo(null);
+                                setReplyContent('');
+                                setPostAttachments([]);
+                              }}>
+                                Cancelar
+                              </Button>
+                              <Button size="sm" onClick={createReply} disabled={loading} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                                Responder
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Respuestas */}
+                        {posts.filter(p => p.parentId === post.id).length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-slate-700 space-y-3 pl-4 border-l-2 border-slate-700">
+                            {posts.filter(p => p.parentId === post.id).map(reply => (
+                              <div key={reply.id} className="bg-slate-700/30 p-3 rounded-lg">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 bg-gradient-to-br from-red-600 to-yellow-600 rounded-full flex items-center justify-center text-xs font-bold">
+                                      {reply.author.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <span className="font-medium text-sm">{reply.author.name}</span>
+                                    <span className="text-xs text-slate-400">{formatDate(reply.createdAt)}</span>
+                                  </div>
+                                  {reply.author.id === user.id && (
+                                    <div className="flex gap-1">
+                                      <Button variant="ghost" size="sm" onClick={() => {
+                                        setEditingPost(reply.id);
+                                        setEditContent(reply.content);
+                                      }}>
+                                        <Edit className="h-3 w-3" />
+                                      </Button>
+                                      <Button variant="ghost" size="sm" onClick={() => deletePost(reply.id)} className="text-red-400 hover:text-red-300">
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                              <div className="flex justify-end gap-2 pt-2 border-t border-slate-700">
-                                <Button size="sm" variant="outline" onClick={() => { setNewMessageRecipient(msg.sender.id); setNewMessageSubject(`Re: ${msg.subject}`); setShowNewMessage(true); }}>Responder</Button>
-                                <Button size="sm" variant="ghost" onClick={() => deleteMessage(msg.id)} className="text-red-400"><Trash2 className="h-4 w-4" /></Button>
-                              </div>
-                            </CardContent>
-                          </CollapsibleContent>
-                        </Card>
-                      </Collapsible>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-              <TabsContent value="sent">
-                {sentMessages.length === 0 ? (
-                  <Card className="bg-slate-800/50 border-slate-700"><CardContent className="p-8 text-center"><p className="text-slate-400">No has enviado mensajes.</p></CardContent></Card>
-                ) : (
-                  <div className="space-y-2">
-                    {sentMessages.map(msg => (
-                      <Collapsible key={msg.id} open={expandedMessages.has(msg.id)} onOpenChange={(open) => { const newSet = new Set(expandedMessages); if (open) newSet.add(msg.id); else newSet.delete(msg.id); setExpandedMessages(newSet); }}>
-                        <Card className="bg-slate-800/50 border-slate-700">
-                          <CardHeader className="p-3">
-                            <CollapsibleTrigger className="w-full">
-                              <div className="flex justify-between items-center">
-                                <span className="font-semibold">{msg.subject}</span>
-                                <div className="flex items-center gap-2 text-sm text-slate-400">
-                                  <span>Para: {msg.receiver.name}</span>
-                                  <span>{formatDate(msg.createdAt)}</span>
-                                  <ChevronDown className={`h-4 w-4 transition-transform ${expandedMessages.has(msg.id) ? 'rotate-180' : ''}`} />
-                                </div>
-                              </div>
-                            </CollapsibleTrigger>
-                          </CardHeader>
-                          <CollapsibleContent>
-                            <CardContent className="pt-0 space-y-4">
-                              <ContentWithLinks content={msg.content} />
-                              {msg.attachments?.length > 0 && (
-                                <div className="flex flex-wrap gap-2">
-                                  {msg.attachments.map(att => renderAttachment(att))}
-                                </div>
-                              )}
-                            </CardContent>
-                          </CollapsibleContent>
-                        </Card>
-                      </Collapsible>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-            </div>
-          )}
-
-          {/* Vista: Admin */}
-          {view === 'admin' && user.role === 'admin' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium">Gestión de Usuarios</h3>
-                <Button onClick={() => setShowInviteUser(true)} className="bg-gradient-to-r from-red-600 to-yellow-600">
-                  <UserPlus className="mr-2 h-4 w-4" />Invitar Usuario
-                </Button>
-              </div>
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-slate-700/50">
-                        <tr>
-                          <th className="p-3 text-left">Usuario</th>
-                          <th className="p-3 text-left">Email</th>
-                          <th className="p-3 text-left">Rol</th>
-                          <th className="p-3 text-left">Estado</th>
-                          <th className="p-3 text-left">Clave de Acceso</th>
-                          <th className="p-3 text-left">Última actividad</th>
-                          <th className="p-3 text-left">Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {members.map(member => (
-                          <tr key={member.id} className="border-t border-slate-700">
-                            <td className="p-3">
-                              <div className="flex items-center gap-2">
-                                {member.role === 'admin' && <Crown className="h-4 w-4 text-yellow-500" />}
-                                {member.name}
-                              </div>
-                            </td>
-                            <td className="p-3 text-slate-400">{member.email}</td>
-                            <td className="p-3">
-                              <Badge variant={member.role === 'admin' ? 'default' : 'secondary'}>{member.role}</Badge>
-                            </td>
-                            <td className="p-3">
-                              <div className="flex items-center gap-2">
-                                {member.isActive ? <UserCheck className="h-4 w-4 text-green-400" /> : <UserX className="h-4 w-4 text-red-400" />}
-                                <span className={member.isActive ? 'text-green-400' : 'text-red-400'}>{member.isActive ? 'Activo' : 'Inactivo'}</span>
-                                {isUserOnline(member.lastActiveAt) && <span className="text-xs text-green-400">(online)</span>}
-                              </div>
-                            </td>
-                            <td className="p-3">
-                              <code className="text-xs bg-slate-700 px-2 py-1 rounded">{member.keyIsPrivate ? '••••••••••••••••' : member.accessKey}</code>
-                            </td>
-                            <td className="p-3 text-slate-400 text-sm">
-                              {member.lastActiveAt ? formatDate(member.lastActiveAt) : 'Nunca'}
-                            </td>
-                            <td className="p-3">
-                              <div className="flex gap-1">
-                                <Button variant="ghost" size="sm" onClick={() => toggleUserActive(member.id)} title={member.isActive ? 'Desactivar' : 'Activar'}>
-                                  {member.isActive ? <UserX className="h-4 w-4 text-red-400" /> : <UserCheck className="h-4 w-4 text-green-400" />}
-                                </Button>
-                                {member.id !== user.id && (
+                                {editingPost === reply.id ? (
+                                  <div className="space-y-2">
+                                    <Textarea
+                                      value={editContent}
+                                      onChange={(e) => setEditContent(e.target.value)}
+                                      className="bg-slate-700/50 border-slate-600 text-sm"
+                                    />
+                                    <div className="flex justify-end gap-2">
+                                      <Button variant="outline" size="sm" onClick={() => setEditingPost(null)}>Cancelar</Button>
+                                      <Button size="sm" onClick={() => updatePost(reply.id)} className="bg-gradient-to-r from-red-600 to-yellow-600">Guardar</Button>
+                                    </div>
+                                  </div>
+                                ) : (
                                   <>
-                                    <Button variant="ghost" size="sm" onClick={() => toggleUserRole(member.id)} title="Cambiar rol">
-                                      <Crown className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="sm" onClick={() => deleteUser(member.id)} className="text-red-400" title="Eliminar">
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    <ContentWithLinks content={reply.content} />
+                                    {reply.attachments.length > 0 && (
+                                      <div className="mt-2 flex flex-wrap gap-2">
+                                        {reply.attachments.map(att => renderAttachment(att, true))}
+                                      </div>
+                                    )}
                                   </>
                                 )}
                               </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+                    {/* VISTA: Mensajes privados */}
+          {view === 'messages' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <Tabs value={messageTab} onValueChange={(v) => setMessageTab(v as 'received' | 'sent')} className="w-auto">
+                  <TabsList className="bg-slate-800">
+                    <TabsTrigger value="received" className="data-[state=active]:bg-slate-700">
+                      Recibidos {unreadCount > 0 && `(${unreadCount})`}
+                    </TabsTrigger>
+                    <TabsTrigger value="sent" className="data-[state=active]:bg-slate-700">
+                      Enviados
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <Button onClick={handleOpenNewMessage} size="sm" className="bg-gradient-to-r from-red-600 to-yellow-600">
+                  <Plus className="h-4 w-4 mr-1" /> Nuevo Mensaje
+                </Button>
+              </div>
+              
+              {/* Formulario nuevo mensaje */}
+              {showNewMessage && (
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardContent className="p-4 space-y-3">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Para:</label>
+                      <Select value={newMessageRecipient} onValueChange={setNewMessageRecipient}>
+                        <SelectTrigger className="bg-slate-700/50 border-slate-600">
+                          <SelectValue placeholder="Seleccionar destinatario" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-700">
+                          {allMembers.filter(m => m.id !== user.id).map(member => (
+                            <SelectItem key={member.id} value={member.id}>
+                              {member.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Asunto:</label>
+                      <Input
+                        value={newMessageSubject}
+                        onChange={(e) => setNewMessageSubject(e.target.value)}
+                        placeholder="Asunto del mensaje"
+                        className="bg-slate-700/50 border-slate-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Mensaje</label>
+                      <Textarea
+                        value={newMessageContent}
+                        onChange={(e) => setNewMessageContent(e.target.value)}
+                        placeholder="Escribe tu mensaje..."
+                        className="min-h-[120px] bg-slate-700/50 border-slate-600"
+                      />
+                    </div>
+                    <FileUpload
+                      onUploadComplete={(files) => setMessageAttachments(prev => [...prev, ...files])}
+                      existingFiles={messageAttachments}
+                      onRemoveExisting={(index) => setMessageAttachments(prev => prev.filter((_, i) => i !== index))}
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => {
+                        setShowNewMessage(false);
+                        setNewMessageRecipient('');
+                        setNewMessageSubject('');
+                        setNewMessageContent('');
+                        setMessageAttachments([]);
+                      }}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={sendMessage} disabled={(!newMessageContent.trim() && messageAttachments.length === 0) || !newMessageRecipient} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                        Enviar
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Lista de mensajes */}
+              <div className="space-y-2">
+                {messageTab === 'received' && messages.length === 0 && (
+                  <Card className="bg-slate-800/50 border-slate-700">
+                    <CardContent className="p-6 text-center">
+                      <p className="text-slate-400">No tienes mensajes.</p>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {messageTab === 'sent' && sentMessages.length === 0 && (
+                  <Card className="bg-slate-800/50 border-slate-700">
+                    <CardContent className="p-6 text-center">
+                      <p className="text-slate-400">No has enviado mensajes.</p>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {(messageTab === 'received' ? messages : sentMessages).map(msg => (
+                  <Collapsible
+                    key={msg.id}
+                    open={expandedMessages.has(msg.id)}
+                    onOpenChange={(open) => {
+                      const newExpanded = new Set(expandedMessages);
+                      if (open) {
+                        newExpanded.add(msg.id);
+                        if (!msg.isRead && messageTab === 'received') {
+                          markAsRead(msg.id);
+                        }
+                      } else {
+                        newExpanded.delete(msg.id);
+                      }
+                      setExpandedMessages(newExpanded);
+                    }}
+                  >
+                    <Card className={`bg-slate-800/50 border-slate-700 ${!msg.isRead && messageTab === 'received' ? 'border-l-4 border-l-yellow-500' : ''}`}>
+                      <CollapsibleTrigger asChild>
+                        <CardContent className="p-4 cursor-pointer hover:bg-slate-700/30">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              {!msg.isRead && messageTab === 'received' && (
+                                <Circle className="h-2 w-2 text-yellow-500 fill-yellow-500" />
+                              )}
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">
+                                    {messageTab === 'received' ? `De: ${msg.sender.name}` : `Para: ${msg.receiver.name}`}
+                                  </span>
+                                  {!msg.isRead && messageTab === 'received' && (
+                                    <Badge className="bg-yellow-600 text-xs">Nuevo</Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-slate-400">{msg.subject}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-slate-400">{formatDate(msg.createdAt)}</span>
+                              {expandedMessages.has(msg.id) ? (
+                                <ChevronUp className="h-4 w-4 text-slate-400" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-slate-400" />
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="px-4 pb-4 border-t border-slate-700 pt-3">
+                          <ContentWithLinks content={msg.content} />
+                          {msg.attachments.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {msg.attachments.map(att => renderAttachment(att))}
+                            </div>
+                          )}
+                          <div className="mt-3 flex justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => deleteMessage(msg.id)}
+                              className="text-red-400 hover:text-red-300"
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" /> Eliminar
+                            </Button>
+                          </div>
+                        </div>
+                      </CollapsibleContent>
+                    </Card>
+                  </Collapsible>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* VISTA: Administración */}
+          {view === 'admin' && user.role === 'admin' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Gestión de Usuarios</h3>
+                <Button onClick={() => setShowInviteUser(true)} size="sm" className="bg-gradient-to-r from-red-600 to-yellow-600">
+                  <UserPlus className="h-4 w-4 mr-1" /> Invitar Usuario
+                </Button>
+              </div>
+              
+              {/* Formulario invitar usuario */}
+              {showInviteUser && (
+                <Card className="bg-slate-800/50 border-slate-700">
+                  <CardContent className="p-4 space-y-3">
+                    <Input
+                      placeholder="Nombre completo"
+                      value={newUserName}
+                      onChange={(e) => setNewUserName(e.target.value)}
+                      className="bg-slate-700/50 border-slate-600"
+                    />
+                    <Input
+                      type="email"
+                      placeholder="Correo electrónico"
+                      value={newUserEmail}
+                      onChange={(e) => setNewUserEmail(e.target.value)}
+                      className="bg-slate-700/50 border-slate-600"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => {
+                        setShowInviteUser(false);
+                        setNewUserName('');
+                        setNewUserEmail('');
+                      }}>Cancelar</Button>
+                      <Button onClick={inviteUser} disabled={loading || !newUserName.trim() || !newUserEmail.trim()} className="bg-gradient-to-r from-red-600 to-yellow-600">
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                        Invitar
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Clave de invitado generado */}
+              {invitedUserKey && (
+                <Card className="bg-green-900/20 border-green-700">
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle className="h-5 w-5 text-green-400 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-medium text-green-300">¡Usuario invitado correctamente!</p>
+                        <p className="text-sm text-slate-300 mt-1">
+                          <strong>{invitedUserKey.name}</strong> ({invitedUserKey.email})
+                        </p>
+                        <div className="mt-3 p-3 bg-slate-800 rounded-lg">
+                          <p className="text-sm text-slate-400 mb-1">Clave de acceso:</p>
+                          <div className="flex items-center gap-2">
+                            <code className="text-lg font-mono text-yellow-400">{invitedUserKey.accessKey}</code>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(invitedUserKey.accessKey)}
+                            >
+                              {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="mt-3 p-3 bg-slate-800 rounded-lg">
+                          <p className="text-sm text-slate-400 mb-1">Mensaje para compartir:</p>
+                          <pre className="text-xs text-slate-300 whitespace-pre-wrap">{getInvitationMessage()}</pre>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2"
+                            onClick={() => copyToClipboard(getInvitationMessage())}
+                          >
+                            <Copy className="h-4 w-4 mr-1" /> Copiar mensaje completo
+                          </Button>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-3"
+                          onClick={() => setInvitedUserKey(null)}
+                        >
+                          Cerrar
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Lista de usuarios */}
+              <div className="space-y-2">
+                {members.length === 0 ? (
+                  <Card className="bg-slate-800/50 border-slate-700">
+                    <CardContent className="p-6 text-center">
+                      <p className="text-slate-400">No hay usuarios registrados.</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  members.map(member => (
+                    <Card key={member.id} className={`bg-slate-800/50 border-slate-700 ${!member.isActive ? 'opacity-60' : ''}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="relative">
+                              <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-yellow-600 rounded-full flex items-center justify-center font-bold">
+                                {member.name.charAt(0).toUpperCase()}
+                              </div>
+                              {isUserOnline(member.lastActiveAt) && (
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-800" />
+                              )}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium">{member.name}</p>
+                                {member.role === 'admin' && (
+                                  <Crown className="h-4 w-4 text-yellow-500" />
+                                )}
+                                {!member.isActive && (
+                                  <Badge variant="secondary" className="text-xs bg-red-900/50 text-red-300">Inactivo</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-slate-400">{member.email}</p>
+                              <p className="text-xs text-slate-500">
+                                Clave: {member.keyIsPrivate ? '••••••••' : member.accessKey}
+                                {!member.keyIsPrivate && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-auto p-0 ml-2 text-xs"
+                                    onClick={() => copyToClipboard(member.accessKey)}
+                                  >
+                                    <Copy className="h-3 w-3 mr-1" /> copiar
+                                  </Button>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {member.id !== user.id && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => toggleUserActive(member.id)}
+                                  className={member.isActive ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}
+                                >
+                                  {member.isActive ? (
+                                    <><UserX className="h-4 w-4 mr-1" /> Desactivar</>
+                                  ) : (
+                                    <><UserCheck className="h-4 w-4 mr-1" /> Activar</>
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => toggleUserRole(member.id)}
+                                >
+                                  {member.role === 'admin' ? 'Quitar admin' : 'Hacer admin'}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteUser(member.id)}
+                                  className="text-red-400 hover:text-red-300"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </main>
       </div>
     </div>
-
-    {/* Diálogos */}
-    {/* Diálogo: Nuevo Tema */}
-    <Dialog open={showNewTopic} onOpenChange={setShowNewTopic}>
-      <DialogContent className="bg-slate-800 border-slate-700">
-        <DialogHeader><DialogTitle>Nuevo Tema</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Nombre</label>
-            <Input value={newTopicName} onChange={(e) => setNewTopicName(e.target.value)} placeholder="Nombre del tema" className="bg-slate-700/50 border-slate-600" />
-          </div>
-          <div>
-            <label className="text-sm font-medium mb-2 block">Descripción (opcional)</label>
-            <Textarea value={newTopicDesc} onChange={(e) => setNewTopicDesc(e.target.value)} placeholder="Descripción del tema" className="bg-slate-700/50 border-slate-600" />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowNewTopic(false)}>Cancelar</Button>
-            <Button onClick={createTopic} disabled={loading || !newTopicName.trim()} className="bg-gradient-to-r from-red-600 to-yellow-600">{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Crear</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Diálogo: Nuevo Subtema */}
-    <Dialog open={showNewSubtopic} onOpenChange={setShowNewSubtopic}>
-      <DialogContent className="bg-slate-800 border-slate-700">
-        <DialogHeader><DialogTitle>Nuevo Subtema</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Nombre</label>
-            <Input value={newSubtopicName} onChange={(e) => setNewSubtopicName(e.target.value)} placeholder="Nombre del subtema" className="bg-slate-700/50 border-slate-600" />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowNewSubtopic(false)}>Cancelar</Button>
-            <Button onClick={createSubtopic} disabled={loading || !newSubtopicName.trim()} className="bg-gradient-to-r from-red-600 to-yellow-600">{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Crear</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Diálogo: Nueva Publicación */}
-    <Dialog open={showNewPostForm} onOpenChange={setShowNewPostForm}>
-      <DialogContent className="bg-slate-800 border-slate-700">
-        <DialogHeader><DialogTitle>Nueva Publicación</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <Textarea value={newPostContent} onChange={(e) => setNewPostContent(e.target.value)} placeholder="Escribe tu publicación..." className="bg-slate-700/50 border-slate-600 min-h-[150px]" />
-          <FileUpload onUploadComplete={(files) => setPostAttachments(prev => [...prev, ...files])} allowedTypes="all" maxFiles={5} />
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => { setShowNewPostForm(false); setPostAttachments([]); }}>Cancelar</Button>
-            <Button onClick={createPost} disabled={loading || (!newPostContent.trim() && postAttachments.length === 0)} className="bg-gradient-to-r from-red-600 to-yellow-600">{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Publicar</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Diálogo: Responder */}
-    <Dialog open={!!replyingTo} onOpenChange={() => setReplyingTo(null)}>
-      <DialogContent className="bg-slate-800 border-slate-700">
-        <DialogHeader><DialogTitle>Responder</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div className="p-3 bg-slate-700/50 rounded text-sm">{replyingTo?.content}</div>
-          <Textarea value={replyContent} onChange={(e) => setReplyContent(e.target.value)} placeholder="Escribe tu respuesta..." className="bg-slate-700/50 border-slate-600" />
-          <FileUpload onUploadComplete={(files) => setPostAttachments(prev => [...prev, ...files])} allowedTypes="all" maxFiles={5} />
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => { setReplyingTo(null); setPostAttachments([]); }}>Cancelar</Button>
-            <Button onClick={createReply} disabled={loading || (!replyContent.trim() && postAttachments.length === 0)} className="bg-gradient-to-r from-red-600 to-yellow-600">{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Responder</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Diálogo: Nuevo Mensaje */}
-    <Dialog open={showNewMessage} onOpenChange={setShowNewMessage}>
-      <DialogContent className="bg-slate-800 border-slate-700">
-        <DialogHeader><DialogTitle>Nuevo Mensaje</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Para</label>
-            <Select value={newMessageRecipient} onValueChange={setNewMessageRecipient}>
-              <SelectTrigger className="bg-slate-700/50 border-slate-600"><SelectValue placeholder="Seleccionar destinatario" /></SelectTrigger>
-              <SelectContent>
-                {allMembers.filter(m => m.id !== user?.id).map(m => (
-                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-sm font-medium mb-2 block">Asunto</label>
-            <Input value={newMessageSubject} onChange={(e) => setNewMessageSubject(e.target.value)} placeholder="Asunto del mensaje" className="bg-slate-700/50 border-slate-600" />
-          </div>
-          <div>
-            <label className="text-sm font-medium mb-2 block">Mensaje</label>
-            <Textarea value={newMessageContent} onChange={(e) => setNewMessageContent(e.target.value)} placeholder="Escribe tu mensaje..." className="bg-slate-700/50 border-slate-600 min-h-[100px]" />
-          </div>
-          <FileUpload onUploadComplete={(files) => setMessageAttachments(prev => [...prev, ...files])} allowedTypes="all" maxFiles={5} />
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => { setShowNewMessage(false); setMessageAttachments([]); }}>Cancelar</Button>
-            <Button onClick={sendMessage} disabled={loading || !newMessageRecipient || (!newMessageContent.trim() && messageAttachments.length === 0)} className="bg-gradient-to-r from-red-600 to-yellow-600">{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Enviar</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Diálogo: Invitar Usuario */}
-    <Dialog open={showInviteUser} onOpenChange={setShowInviteUser}>
-      <DialogContent className="bg-slate-800 border-slate-700">
-        <DialogHeader>
-          <DialogTitle>Invitar Nuevo Usuario</DialogTitle>
-          <DialogDescription>Se generará una clave de acceso única para el nuevo usuario.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Nombre</label>
-            <Input value={newUserName} onChange={(e) => setNewUserName(e.target.value)} placeholder="Nombre del usuario" className="bg-slate-700/50 border-slate-600" />
-          </div>
-          <div>
-            <label className="text-sm font-medium mb-2 block">Email</label>
-            <Input type="email" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} placeholder="email@ejemplo.com" className="bg-slate-700/50 border-slate-600" />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowInviteUser(false)}>Cancelar</Button>
-            <Button onClick={inviteUser} disabled={loading || !newUserName.trim() || !newUserEmail.trim()} className="bg-gradient-to-r from-red-600 to-yellow-600">{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Invitar</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Diálogo: Clave de invitado */}
-    <Dialog open={!!invitedUserKey} onOpenChange={() => setInvitedUserKey(null)}>
-      <DialogContent className="bg-slate-800 border-slate-700">
-        <DialogHeader>
-          <DialogTitle>¡Usuario Invitado!</DialogTitle>
-          <DialogDescription>Comparte esta información con el nuevo usuario. La clave es única y confidencial.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="p-4 bg-slate-700/50 rounded-lg space-y-2">
-            <div className="flex items-center justify-between"><span className="text-sm text-slate-400">Nombre:</span><span className="font-medium">{invitedUserKey?.name}</span></div>
-            <div className="flex items-center justify-between"><span className="text-sm text-slate-400">Email:</span><span className="font-medium">{invitedUserKey?.email}</span></div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-400">Clave de acceso:</span>
-              <div className="flex items-center gap-2">
-                <code className="px-2 py-1 bg-slate-600 rounded font-mono text-yellow-400">{invitedUserKey?.accessKey}</code>
-                <Button size="sm" variant="ghost" onClick={() => copyToClipboard(invitedUserKey?.accessKey || '')}>{copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}</Button>
-              </div>
-            </div>
-          </div>
-          <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-            <p className="text-sm text-yellow-200"><strong>Importante:</strong> Guarda esta clave en un lugar seguro. El usuario la necesitará para acceder al foro.</p>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setInvitedUserKey(null)}>Cerrar</Button>
-            <Button onClick={() => { const message = getInvitationMessage(); navigator.clipboard.writeText(message); setCopied(true); }} className="bg-gradient-to-r from-red-600 to-yellow-600"><Copy className="mr-2 h-4 w-4" />Copiar mensaje completo</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Diálogo: Perfil */}
+          {/* Diálogo de Perfil */}
     <Dialog open={showProfile} onOpenChange={setShowProfile}>
-      <DialogContent className="bg-slate-800 border-slate-700">
-        <DialogHeader><DialogTitle>Mi Perfil</DialogTitle></DialogHeader>
-        <div className="space-y-4">
+      <DialogContent className="bg-slate-800 border-slate-700 max-w-md">
+        <DialogHeader>
+          <DialogTitle>Mi Perfil</DialogTitle>
+          <DialogDescription className="text-slate-400">
+            Actualiza tu información personal
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 pt-4">
           <div>
             <label className="text-sm font-medium mb-2 block">Nombre</label>
-            <Input value={profileName} onChange={(e) => setProfileName(e.target.value)} className="bg-slate-700/50 border-slate-600" />
+            <Input
+              value={profileName}
+              onChange={(e) => setProfileName(e.target.value)}
+              className="bg-slate-700/50 border-slate-600"
+            />
           </div>
           <div>
             <label className="text-sm font-medium mb-2 block">Email</label>
-            <Input type="email" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} className="bg-slate-700/50 border-slate-600" />
+            <Input
+              type="email"
+              value={profileEmail}
+              onChange={(e) => setProfileEmail(e.target.value)}
+              className="bg-slate-700/50 border-slate-600"
+            />
           </div>
-          {newKeyGenerated && (
-            <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-              <p className="text-sm text-yellow-200 mb-2"><strong>¡Nueva clave generada!</strong></p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 px-2 py-1 bg-slate-600 rounded font-mono text-yellow-400">{newKeyGenerated}</code>
-                <Button size="sm" variant="ghost" onClick={() => copyToClipboard(newKeyGenerated)}><Copy className="h-4 w-4" /></Button>
+          
+          {newKeyGenerated ? (
+            <div className="p-3 bg-green-900/20 border border-green-700 rounded-lg">
+              <p className="text-sm text-green-300 font-medium">¡Nueva clave generada!</p>
+              <p className="text-xs text-slate-400 mt-1">Guarda esta clave en un lugar seguro:</p>
+              <div className="flex items-center gap-2 mt-2">
+                <code className="text-lg font-mono text-yellow-400">{newKeyGenerated}</code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyToClipboard(newKeyGenerated)}
+                >
+                  {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                </Button>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => {
+                  setNewKeyGenerated('');
+                  setShowProfile(false);
+                }}
+              >
+                Entendido
+              </Button>
             </div>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => updateProfile(false)} 
+                  disabled={loading}
+                  className="flex-1 bg-gradient-to-r from-red-600 to-yellow-600"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                  Guardar Cambios
+                </Button>
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={() => updateProfile(true)} 
+                disabled={loading}
+                className="w-full"
+              >
+                Generar Nueva Clave de Acceso
+              </Button>
+              <div className="pt-4 border-t border-slate-700">
+                <Button 
+                  variant="ghost" 
+                  onClick={deleteAccount}
+                  className="w-full text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                >
+                  Darme de baja
+                </Button>
+              </div>
+            </>
           )}
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => updateProfile(false)} disabled={loading} className="bg-gradient-to-r from-red-600 to-yellow-600">{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar cambios</Button>
-            <Button variant="outline" onClick={() => updateProfile(true)} disabled={loading}><Key className="mr-2 h-4 w-4" />Generar nueva clave</Button>
-          </div>
-          <div className="pt-4 border-t border-slate-700">
-            <Button variant="ghost" onClick={deleteAccount} className="text-red-400 hover:text-red-300 hover:bg-red-500/10"><UserX className="mr-2 h-4 w-4" />Darse de baja</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Diálogo: Editar Tema */}
-    <Dialog open={!!editingTopic} onOpenChange={() => setEditingTopic(null)}>
-      <DialogContent className="bg-slate-800 border-slate-700">
-        <DialogHeader><DialogTitle>Editar Tema</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Nombre</label>
-            <Input value={editTopicName} onChange={(e) => setEditTopicName(e.target.value)} className="bg-slate-700/50 border-slate-600" />
-          </div>
-          <div>
-            <label className="text-sm font-medium mb-2 block">Descripción</label>
-            <Textarea value={editTopicDesc} onChange={(e) => setEditTopicDesc(e.target.value)} className="bg-slate-700/50 border-slate-600" />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setEditingTopic(null)}>Cancelar</Button>
-            <Button onClick={editTopic} disabled={loading || !editTopicName.trim()} className="bg-gradient-to-r from-red-600 to-yellow-600">{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Diálogo: Editar Subtema */}
-    <Dialog open={!!editingSubtopic} onOpenChange={() => setEditingSubtopic(null)}>
-      <DialogContent className="bg-slate-800 border-slate-700">
-        <DialogHeader><DialogTitle>Editar Subtema</DialogTitle></DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Nombre</label>
-            <Input value={editSubtopicName} onChange={(e) => setEditSubtopicName(e.target.value)} className="bg-slate-700/50 border-slate-600" />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setEditingSubtopic(null)}>Cancelar</Button>
-            <Button onClick={editSubtopic} disabled={loading || !editSubtopicName.trim()} className="bg-gradient-to-r from-red-600 to-yellow-600">{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar</Button>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
