@@ -499,9 +499,7 @@ export default function ForumPage() {
     setLoading(true);
     try {
       const res = await fetch('/api/topics', {
-            try {
-      const res = await fetch('/api/topics', {
-        method: 'POST',
+                   method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newTopicName, description: newTopicDesc })
       });
@@ -1384,11 +1382,11 @@ Te esperamos!`;
                   <Button variant="outline" onClick={goToChat}>
                     <MessageSquare className="mr-2 h-4 w-4" /> Chat del Tema
                   </Button>
-                  {user.role === 'admin' && (
+                  
                     <Button onClick={() => setShowNewSubtopic(true)} className="bg-gradient-to-r from-red-600 to-yellow-600">
                       <Plus className="mr-2 h-4 w-4" /> Nuevo Subtema
                     </Button>
-                  )}
+           
                 </div>
               </div>
               
@@ -1501,7 +1499,7 @@ Te esperamos!`;
                                 onChange={(e) => setEditContent(e.target.value)}
                                 className="bg-slate-700/50 border-slate-600"
                               />
-                                                            />
+                                                            
                               <div className="flex gap-2">
                                 <Button size="sm" onClick={() => updatePost(post.id)}>Guardar</Button>
                                 <Button size="sm" variant="outline" onClick={() => setEditingPost(null)}>Cancelar</Button>
@@ -2002,7 +2000,7 @@ Te esperamos!`;
           </div>
         </DialogContent>
       </Dialog>
-            </Dialog>
+         
 
       {/* Dialogo: Nuevo Mensaje Privado */}
       <Dialog open={showNewMessage} onOpenChange={setShowNewMessage}>
