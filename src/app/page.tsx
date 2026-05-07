@@ -468,6 +468,13 @@ export default function ForumPage() {
       window.history.pushState({ view: 'chat', topicId: selectedTopic.id }, '');
     }
   };
+  const goToSubtopicChat = () => {
+  if (selectedSubtopic) {
+    loadSubtopicChat(selectedSubtopic.id);
+    setView('subtopic-chat');
+    window.history.pushState({ view: 'subtopic-chat', subtopicId: selectedSubtopic.id }, '');
+  }
+};
 
   const goToAdmin = () => {
     loadMembers();
@@ -710,6 +717,7 @@ export default function ForumPage() {
           attachments: chatAttachments 
         })
       });
+      
       setNewChatMessage('');
       setChatAttachments([]);
       loadChat(selectedTopic.id);
@@ -717,6 +725,35 @@ export default function ForumPage() {
       console.error('Error sending chat message:', e);
     }
   };
+  const loadSubtopicChat = async (subtopicId: string) => {
+  try {
+    const res = await fetch(`/api/chat?subtopicId=${subtopicId}`);
+    const data = await res.json();
+    setChatMessages(data.messages || []);
+  } catch (e) {
+    console.error('Error loading subtopic chat:', e);
+  }
+};
+
+const sendSubtopicChatMessage = async () => {
+  if ((!newChatMessage.trim() && chatAttachments.length === 0) || !selectedSubtopic) return;
+  try {
+    await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        subtopicId: selectedSubtopic.id, 
+        message: newChatMessage,
+        attachments: chatAttachments 
+      })
+    });
+    setNewChatMessage('');
+    setChatAttachments([]);
+    loadSubtopicChat(selectedSubtopic.id);
+  } catch (e) {
+    console.error('Error sending subtopic chat message:', e);
+  }
+};
 
   const sendMessage = async () => {
     if ((!newMessageContent.trim() && messageAttachments.length === 0) || !newMessageRecipient) return;
@@ -1436,9 +1473,14 @@ Te esperamos!`;
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-semibold">{selectedSubtopic.name}</h3>
-                <Button onClick={() => setShowNewPostForm(!showNewPostForm)} className="bg-gradient-to-r from-red-600 to-yellow-600">
-                  <Plus className="mr-2 h-4 w-4" /> Nueva Publicacion
-                </Button>
+               <div className="flex gap-2">
+  <Button variant="outline" onClick={goToSubtopicChat}>
+    <MessageSquare className="mr-2 h-4 w-4" /> Chat del Subtema
+  </Button>
+  <Button onClick={() => setShowNewPostForm(!showNewPostForm)} className="bg-gradient-to-r from-red-600 to-yellow-600">
+    <Plus className="mr-2 h-4 w-4" /> Nueva Publicacion
+  </Button>
+</div>
               </div>
               
               {showNewPostForm && (
@@ -1674,6 +1716,58 @@ Te esperamos!`;
               </div>
             </div>
           )}
+                        {view === 'subtopic-chat' && selectedSubtopic && (
+                <div className="flex flex-col h-[calc(100vh-180px)]">
+                  <div className="flex-1 overflow-y-auto space-y-4 p-4 bg-slate-800/30 rounded-lg" ref={chatRef}>
+                    {chatMessages.map(msg => (
+                      <div key={msg.id} className={`flex gap-3 ${msg.user.id === user.id ? 'flex-row-reverse' : ''}`}>
+                        <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-yellow-500 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-sm font-bold">{msg.user.name.charAt(0)}</span>
+                        </div>
+                        <div className={`max-w-[70%] ${msg.user.id === user.id ? 'bg-red-600/20' : 'bg-slate-700/50'} rounded-lg p-3`}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-sm">{msg.user.name}</span>
+                            <span className="text-xs text-slate-400">{formatDate(msg.createdAt)}</span>
+                          </div>
+                          <ContentWithLinks content={msg.message} />
+                          {msg.attachments?.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {msg.attachments.map(att => renderAttachment(att, true))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {chatMessages.length === 0 && (
+                      <div className="text-center py-12 text-slate-400">
+                        <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>No hay mensajes en el subtema aun</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="mt-4 space-y-2">
+                    <div className="flex gap-2">
+                      <Textarea
+                        placeholder="Escribe un mensaje..."
+                        value={newChatMessage}
+                        onChange={(e) => setNewChatMessage(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), sendSubtopicChatMessage())}
+                        className="min-h-[60px] bg-slate-700/50 border-slate-600"
+                      />
+                      <Button onClick={sendSubtopicChatMessage} disabled={(!newChatMessage.trim() && chatAttachments.length === 0)} className="bg-gradient-to-r from-red-600 to-yellow-600 self-end">
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <FileUpload
+                      onUploadComplete={(files) => setChatAttachments(prev => [...prev, ...files])}
+                      existingFiles={chatAttachments}
+                      onRemoveExisting={(index) => setChatAttachments(prev => prev.filter((_, i) => i !== index))}
+                    />
+                  </div>
+                </div>
+              )}
 
           {/* VISTA: Mensajes privados */}
           {view === 'messages' && (
