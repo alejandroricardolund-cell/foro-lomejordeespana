@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { cookies } from 'next/headers';
 
-// GET - Obtener mensajes de chat de un tema
+// GET - Obtener mensajes de chat de un tema O subtema
 export async function GET(request: NextRequest) {
   try {
     const sessionCookie = (await cookies()).get('session');
@@ -12,13 +12,17 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const topicId = searchParams.get('topicId');
+    const subtopicId = searchParams.get('subtopicId');
 
-    if (!topicId) {
-      return NextResponse.json({ error: 'ID de tema requerido' }, { status: 400 });
+    if (!topicId && !subtopicId) {
+      return NextResponse.json({ error: 'ID de tema o subtema requerido' }, { status: 400 });
     }
 
+    // Si llega topicId busca por tema, si llega subtopicId busca por subtema
+    const where = topicId ? { topicId } : { subtopicId };
+
     const messages = await db.chatMessage.findMany({
-      where: { topicId },
+      where,
       include: {
         user: { select: { id: true, name: true } },
         attachments: true
@@ -33,7 +37,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Enviar mensaje al chat
+// POST - Enviar mensaje al chat (tema O subtema)
 export async function POST(request: NextRequest) {
   try {
     const sessionCookie = (await cookies()).get('session');
@@ -44,19 +48,24 @@ export async function POST(request: NextRequest) {
     const decoded = Buffer.from(sessionCookie.value, 'base64').toString();
     const [userId] = decoded.split(':');
 
-    const { topicId, message, attachments } = await request.json();
+    const { topicId, subtopicId, message, attachments } = await request.json();
 
-    // Permitir mensajes sin texto si hay archivos adjuntos
-    if (!topicId || (!message && (!attachments || attachments.length === 0))) {
+    // Permitir mensajes si hay topicId O subtopicId, y si hay texto o archivos
+    if ((!topicId && !subtopicId) || (!message && (!attachments || attachments.length === 0))) {
       return NextResponse.json({ error: 'Se requiere mensaje o archivos adjuntos' }, { status: 400 });
     }
 
+    // Preparamos los datos dinámicamente
+    const chatData: any = {
+      userId,
+      message: message || ''
+    };
+    
+    if (topicId) chatData.topicId = topicId;
+    if (subtopicId) chatData.subtopicId = subtopicId;
+
     const chatMessage = await db.chatMessage.create({
-      data: {
-        topicId,
-        userId,
-        message: message || '' // Permitir mensaje vacío si hay adjuntos
-      },
+      data: chatData,
       include: {
         user: { select: { id: true, name: true } }
       }
