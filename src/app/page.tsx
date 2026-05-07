@@ -1001,7 +1001,7 @@ export default function ForumPage() {
   // Generar mensaje para compartir
   const getInvitationMessage = () => {
     if (!invitedUserKey) return '';
-    return `Has sido invitado al foro "Lo Mejor de Espana"!
+    return `Has sido invitado al foro "Lo Mejor de España"!
 
 Tu clave de acceso es: ${invitedUserKey.accessKey}
 
@@ -1037,7 +1037,7 @@ Te esperamos!`;
               </svg>
             </div>
             <CardTitle className="text-3xl font-bold bg-gradient-to-r from-red-500 via-yellow-500 to-red-500 bg-clip-text text-transparent">
-              Lo Mejor De Espana
+              Lo Mejor de España
             </CardTitle>
             <CardDescription className="text-slate-300 text-lg mt-2">
               Foro Privado
@@ -1119,7 +1119,7 @@ Te esperamos!`;
         <div className="p-4 border-b border-slate-700 flex items-center justify-between">
           {sidebarOpen && (
             <h1 className="font-bold text-lg bg-gradient-to-r from-red-500 to-yellow-500 bg-clip-text text-transparent">
-              Lo Mejor De Espana
+              Lo Mejor de España
             </h1>
           )}
           <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)}>
