@@ -500,6 +500,25 @@ export default function ForumPage() {
     window.history.pushState({ view: 'forum' }, '');
   };
 
+    const goBackSmart = () => {
+    if (view === 'subtopic' || view === 'subtopic-chat') {
+      setSelectedSubtopic(null);
+      setChatMessages([]);
+      setView('topic');
+      window.history.pushState({ view: 'topic', topicId: selectedTopic?.id }, '');
+    } else if (view === 'topic' || view === 'chat') {
+      setSelectedTopic(null);
+      setChatMessages([]);
+      setView('forum');
+      window.history.pushState({ view: 'forum' }, '');
+    } else if (view === 'admin' || view === 'messages') {
+      setView('forum');
+      window.history.pushState({ view: 'forum' }, '');
+    } else {
+      goToForum();
+    }
+  };
+
   // Acciones de contenido
   const createTopic = async () => {
     if (!newTopicName.trim()) return;
@@ -1228,7 +1247,7 @@ Te esperamos!`;
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {view !== 'forum' && (
-                <Button variant="ghost" size="sm" onClick={goToForum}>
+                <Button variant="ghost" size="sm" onClick={goBackSmart}>
                   <ChevronRight className="h-4 w-4 rotate-180" />
                 </Button>
               )}
