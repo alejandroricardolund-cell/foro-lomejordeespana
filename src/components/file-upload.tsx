@@ -158,7 +158,7 @@ export function FileUpload({
       case 'audio': return 'audio/*';
       case 'video': return 'video/*';
       case 'documents': return '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv,.note,.pages,.numbers,.key,.rtf,.odt,.ods,.odp';
-      default: return 'image/*,audio/*,video/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.md,.txt,.json,.csv,.note,.pages,.numbers,.key,.rtf,.odt,.ods,.odp,.zip,.rar';
+      default: return '*/*';
     }
   };
 
