@@ -71,22 +71,7 @@ export function ExternalLink({ url, children, className = '' }: ExternalLinkProp
               </DialogDescription>
             </DialogHeader>
             
-            <div className="space-y-4">
-              <div className="p-3 bg-green-900/20 border border-green-700/30 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <Shield className="h-4 w-4 text-green-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-green-300 font-medium">Opción privada (recomendada)</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Usa Invidious: sin rastreo, sin ads, sin login requerido.
-                    </p>
-                  </div>
-                </div>
-                <Button onClick={() => handleOpenLink(true)} className="w-full mt-3 bg-green-600 hover:bg-green-700">
-                  <Shield className="h-4 w-4 mr-2" />
-                  Ver con privacidad
-                </Button>
-              </div>
+            
 
               <div className="p-3 bg-slate-700/50 border border-slate-600 rounded-lg">
                 <div className="flex items-start gap-2">
