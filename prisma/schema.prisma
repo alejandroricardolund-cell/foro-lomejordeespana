@@ -98,7 +98,7 @@ model ChatMessage {
   createdAt DateTime @default(now())
 
   // Relaciones
-  topic       Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  topic       Topic? @relation(fields: [topicId], references: [id], onDelete: Cascade)
   subtopic    Subtopic? @relation(fields: [subtopicId], references: [id], onDelete: Cascade)
   user        User  @relation(fields: [userId], references: [id])
   attachments FileAttachment[]
