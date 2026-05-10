@@ -91,7 +91,7 @@ model Post {
 // Mensajes del chat de brainstorming por tema
 model ChatMessage {
   id        String   @id @default(cuid())
-  topicId   String
+  topicId   String?
   subtopicId String?
   userId    String
   message   String
