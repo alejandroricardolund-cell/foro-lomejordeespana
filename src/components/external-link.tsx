@@ -88,7 +88,7 @@ export function ExternalLink({ url, children, className = '' }: ExternalLinkProp
                   Ver en YouTube
                 </Button>
               </div>
-            </div>
+      
           </DialogContent>
         </Dialog>
       </>
