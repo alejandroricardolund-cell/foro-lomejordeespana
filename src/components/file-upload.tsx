@@ -42,6 +42,7 @@ export function FileUpload({
   const [error, setError] = useState<string | null>(null);
 
   const { startUpload } = useUploadThing("fileUploader", {
+  enableClientUpload: true,
     onClientUploadComplete: (res) => {
       const files = res.map(file => ({
         url: file.url,
