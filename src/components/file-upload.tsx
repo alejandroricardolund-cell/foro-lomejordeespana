@@ -65,9 +65,9 @@ export function FileUpload({
         const randomStr = Math.random().toString(36).substring(2, 8);
         const ext = file.name.split('.').pop() || 'bin';
         let folder = 'forum';
-        if (file.type.startsWith('image/')) folder = 'images';
-        else if (file.type.startsWith('audio/')) folder = 'audio';
-        else if (file.type.startsWith('video/')) folder = 'videos';
+        if (file.type?.startsWith('image/')) folder = 'images';
+        else if (file.type?.startsWith('audio/')) folder = 'audio';
+        else if (file.type?.startsWith('video/')) folder = 'videos';
         else folder = 'documents';
 
         const filename = `${folder}/${timestamp}-${randomStr}.${ext}`;
@@ -105,9 +105,9 @@ export function FileUpload({
   };
 
   const getFileIcon = (type: string) => {
-    if (type.startsWith('image/')) return <Image className="h-4 w-4 text-blue-400" />;
-    if (type.startsWith('audio/')) return <Music className="h-4 w-4 text-purple-400" />;
-    if (type.startsWith('video/')) return <Video className="h-4 w-4 text-red-400" />;
+    if (type?.startsWith('image/')) return <Image className="h-4 w-4 text-blue-400" />;
+    if (type?.startsWith('audio/')) return <Music className="h-4 w-4 text-purple-400" />;
+    if (type?.startsWith('video/')) return <Video className="h-4 w-4 text-red-400" />;
     if (type.includes('pdf')) return <FileText className="h-4 w-4 text-red-500" />;
     if (type.includes('presentation') || type.includes('powerpoint')) return <FileText className="h-4 w-4 text-orange-400" />;
     if (type.includes('document') || type.includes('word')) return <FileText className="h-4 w-4 text-blue-500" />;
