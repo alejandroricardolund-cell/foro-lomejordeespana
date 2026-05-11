@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { 
   Upload, X, File, Image, Music, FileText, Loader2, 
   CheckCircle, AlertCircle, Trash2, Video 
 } from 'lucide-react';
-import { uploadFile } from '@/app/actions/upload';
+import { useUploadThing } from "@uploadthing/react";
 
 export interface UploadedFile {
   url: string;
@@ -41,96 +41,56 @@ export function FileUpload({
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const handleUpload = async (file: File): Promise<UploadedFile> => {
-    let folder = 'forum';
-    if (file.type.startsWith('image/')) folder = 'images';
-    else if (file.type.startsWith('audio/')) folder = 'audio';
-    else if (file.type.startsWith('video/')) folder = 'videos';
-    else if (file.type.includes('pdf') || file.type.includes('document') || file.type.includes('presentation')) folder = 'documents';
+  const { startUpload } = useUploadThing("fileUploader", {
+    onClientUploadComplete: (res) => {
+      const files = res.map(file => ({
+        url: file.url,
+        key: file.key,
+        name: file.name,
+        size: file.size,
+        type: file.type || 'application/octet-stream',
+      }));
+      setUploadedFiles(prev => [...prev, ...files]);
+      onUploadComplete(files);
+      setUploading(false);
+      setProgress(100);
+    },
+    onUploadError: (error) => {
+      setError(error.message);
+      onUploadError?.(error);
+      setUploading(false);
+    },
+    onUploadProgress: (progress) => {
+      setProgress(Math.round(progress));
+    },
+  });
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('folder', folder);
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    const result = await uploadFile(formData);
-
-    if (result.error) {
-      throw new Error(result.error);
+    const totalFiles = existingFiles.length + uploadedFiles.length + files.length;
+    if (totalFiles > maxFiles) {
+      setError(`Máximo ${maxFiles} archivos permitidos`);
+      return;
     }
 
-    return result.file as UploadedFile;
-  };
+    setError(null);
+    setUploading(true);
+    setProgress(0);
 
-  const handleFileChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files;
-      if (!files || files.length === 0) return;
-
-      const totalFiles = existingFiles.length + uploadedFiles.length + files.length;
-      if (totalFiles > maxFiles) {
-        setError(`Máximo ${maxFiles} archivos permitidos`);
-        return;
-      }
-
-      setError(null);
-      setUploading(true);
-      setProgress(0);
-
-      const uploadedResults: UploadedFile[] = [];
-      const totalSize = Array.from(files).reduce((acc, f) => acc + f.size, 0);
-      let uploadedSize = 0;
-
-      try {
-        for (const file of Array.from(files)) {
-          const allowedTypesArr = [
-            'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/bmp',
-            'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/aac',
-            'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime',
-            'application/pdf',
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/vnd.ms-powerpoint',
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            'application/vnd.ms-excel',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'text/plain', 'text/markdown', 'text/csv',
-            'application/json',
-          ];
-
-          const fileName = file.name.toLowerCase();
-          const extraExtensions = ['.md', '.txt', '.json', '.csv', '.note', '.pages', '.numbers', '.key', '.rtf', '.odt', '.zip', '.rar'];
-          const hasExtraExtension = extraExtensions.some(ext => fileName.endsWith(ext));
-
-          if (!allowedTypesArr.includes(file.type) && !hasExtraExtension) {
-            throw new Error(`Tipo no permitido: ${file.type || file.name}`);
-          }
-
-          const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 20 * 1024 * 1024;
-          if (file.size > maxSize) {
-            throw new Error(`${file.name} es muy grande. Máx: ${file.type.startsWith('video/') ? '50MB' : '20MB'}`);
-          }
-
-          const result = await handleUpload(file);
-          uploadedResults.push(result);
-          uploadedSize += file.size;
-          setProgress(Math.round((uploadedSize / totalSize) * 100));
-        }
-
-        setUploadedFiles((prev) => [...prev, ...uploadedResults]);
-        onUploadComplete(uploadedResults);
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Error al subir archivos';
-        setError(errorMsg);
-        onUploadError?.(err instanceof Error ? err : new Error(errorMsg));
-      } finally {
-        setUploading(false);
-        setTimeout(() => setProgress(0), 1000);
-      }
-
+    try {
+      await startUpload(Array.from(files));
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Error al subir archivos';
+      setError(errorMsg);
+      onUploadError?.(err instanceof Error ? err : new Error(errorMsg));
+      setUploading(false);
+    } finally {
+      setTimeout(() => setProgress(0), 2000);
       e.target.value = '';
-    },
-    [maxFiles, existingFiles.length, uploadedFiles.length, onUploadComplete, onUploadError]
-  );
+    }
+  };
 
   const removeFile = (index: number) => {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
@@ -164,11 +124,11 @@ export function FileUpload({
 
   const getTypeLabel = () => {
     switch (allowedTypes) {
-      case 'images': return 'Imágenes (JPG, PNG, GIF, WebP) - máx. 20MB';
-      case 'audio': return 'Audio (MP3, WAV, OGG) - máx. 20MB';
-      case 'video': return 'Video (MP4, WebM, MOV) - máx. 50MB';
-      case 'documents': return 'Documentos (PDF, Word, PowerPoint, Excel) - máx. 20MB';
-      default: return 'Imágenes, audio, video, documentos';
+      case 'images': return 'Imágenes - máx. 32MB';
+      case 'audio': return 'Audio - máx. 32MB';
+      case 'video': return 'Video - máx. 32MB';
+      case 'documents': return 'Documentos (PDF, PPT...) - máx. 32MB';
+      default: return 'Cualquier archivo - máx. 32MB';
     }
   };
 
