@@ -64,10 +64,11 @@ export function FileUpload({
         const timestamp = Date.now();
         const randomStr = Math.random().toString(36).substring(2, 8);
         const ext = file.name.split('.').pop() || 'bin';
+            const fileName = file.name.toLowerCase();
         let folder = 'forum';
-        if (file.type?.startsWith('image/')) folder = 'images';
-        else if (file.type?.startsWith('audio/')) folder = 'audio';
-        else if (file.type?.startsWith('video/')) folder = 'videos';
+        if (fileName.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/)) folder = 'images';
+        else if (fileName.match(/\.(mp3|wav|ogg|m4a|aac)$/)) folder = 'audio';
+        else if (fileName.match(/\.(mp4|webm|mov|avi)$/)) folder = 'videos';
         else folder = 'documents';
 
         const filename = `${folder}/${timestamp}-${randomStr}.${ext}`;
@@ -105,12 +106,13 @@ export function FileUpload({
   };
 
   const getFileIcon = (type: string) => {
-    if (type?.startsWith('image/')) return <Image className="h-4 w-4 text-blue-400" />;
-    if (type?.startsWith('audio/')) return <Music className="h-4 w-4 text-purple-400" />;
-    if (type?.startsWith('video/')) return <Video className="h-4 w-4 text-red-400" />;
-    if (type.includes('pdf')) return <FileText className="h-4 w-4 text-red-500" />;
-    if (type.includes('presentation') || type.includes('powerpoint')) return <FileText className="h-4 w-4 text-orange-400" />;
-    if (type.includes('document') || type.includes('word')) return <FileText className="h-4 w-4 text-blue-500" />;
+    const t = (type || '').toLowerCase();
+    if (t.includes('image')) return <Image className="h-4 w-4 text-blue-400" />;
+    if (t.includes('audio')) return <Music className="h-4 w-4 text-purple-400" />;
+    if (t.includes('video')) return <Video className="h-4 w-4 text-red-400" />;
+    if (t.includes('pdf')) return <FileText className="h-4 w-4 text-red-500" />;
+    if (t.includes('presentation') || t.includes('powerpoint')) return <FileText className="h-4 w-4 text-orange-400" />;
+    if (t.includes('document') || t.includes('word')) return <FileText className="h-4 w-4 text-blue-500" />;
     return <File className="h-4 w-4 text-slate-400" />;
   };
 
