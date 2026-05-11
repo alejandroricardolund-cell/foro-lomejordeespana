@@ -7,7 +7,7 @@ import {
   Upload, X, File, Image, Music, FileText, Loader2, 
   CheckCircle, AlertCircle, Trash2, Video 
 } from 'lucide-react';
-import { useUploadThing } from "@uploadthing/react";
+import { put } from '@vercel/blob/client';
 
 export interface UploadedFile {
   url: string;
@@ -41,31 +41,6 @@ export function FileUpload({
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const { startUpload } = useUploadThing("fileUploader", {
-  enableClientUpload: true,
-    onClientUploadComplete: (res) => {
-      const files = res.map(file => ({
-        url: file.url,
-        key: file.key,
-        name: file.name,
-        size: file.size,
-        type: file.type || 'application/octet-stream',
-      }));
-      setUploadedFiles(prev => [...prev, ...files]);
-      onUploadComplete(files);
-      setUploading(false);
-      setProgress(100);
-    },
-    onUploadError: (error) => {
-      setError(error.message);
-      onUploadError?.(error);
-      setUploading(false);
-    },
-    onUploadProgress: (progress) => {
-      setProgress(Math.round(progress));
-    },
-  });
-
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -80,15 +55,47 @@ export function FileUpload({
     setUploading(true);
     setProgress(0);
 
+    const uploadedResults: UploadedFile[] = [];
+    const totalSize = Array.from(files).reduce((acc, f) => acc + f.size, 0);
+    let uploadedSize = 0;
+
     try {
-      await startUpload(Array.from(files));
+      for (const file of Array.from(files)) {
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2, 8);
+        const ext = file.name.split('.').pop() || 'bin';
+        let folder = 'forum';
+        if (file.type.startsWith('image/')) folder = 'images';
+        else if (file.type.startsWith('audio/')) folder = 'audio';
+        else if (file.type.startsWith('video/')) folder = 'videos';
+        else folder = 'documents';
+
+        const filename = `${folder}/${timestamp}-${randomStr}.${ext}`;
+
+        // SUBIDA DIRECTA A LA NUBE (SIN PASAR POR EL SERVIDOR DE VERCEL!)
+        const blob = await put(filename, file, { access: 'public' });
+
+        uploadedResults.push({
+          url: blob.url,
+          key: blob.url,
+          name: file.name,
+          size: file.size,
+          type: file.type || 'application/octet-stream',
+        });
+        
+        uploadedSize += file.size;
+        setProgress(Math.round((uploadedSize / totalSize) * 100));
+      }
+
+      setUploadedFiles((prev) => [...prev, ...uploadedResults]);
+      onUploadComplete(uploadedResults);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error al subir archivos';
       setError(errorMsg);
       onUploadError?.(err instanceof Error ? err : new Error(errorMsg));
-      setUploading(false);
     } finally {
-      setTimeout(() => setProgress(0), 2000);
+      setUploading(false);
+      setTimeout(() => setProgress(0), 1000);
       e.target.value = '';
     }
   };
