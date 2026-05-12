@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
+import { Progress } from '@/components/ui/progress'; 
 import { 
   Upload, X, File, Image, Music, FileText, Loader2, 
   CheckCircle, AlertCircle, Trash2, Video 
