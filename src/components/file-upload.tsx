@@ -32,7 +32,8 @@ export function FileUpload({
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const { startUpload } = useUploadThing("fileUploader", {
+    const { startUpload } = useUploadThing("fileUploader", {
+    enableClientUpload: true,
     onClientUploadComplete: (res) => {
       const files = res.map(file => ({ url: file.url, key: file.key, name: file.name, size: file.size, type: file.type || 'application/octet-stream' }));
       setUploadedFiles(prev => [...prev, ...files]);
